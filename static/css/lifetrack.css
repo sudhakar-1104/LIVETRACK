@@ -1,5 +1,6 @@
 /* =========================================================
    LifeTrack v2.0 — Modern Fintech & Productivity Design System
+   (Vertical Sidebar Layout)
    ========================================================= */
 
 :root {
@@ -17,7 +18,9 @@
     --lt-primary-hover: #4338ca;
     --lt-primary-soft: rgba(79, 70, 229, 0.10);
 
-    --lt-nav-bg: #0f172a;        /* Deep Slate 900 */
+    --lt-sidebar-w: 260px;
+    --lt-sidebar-bg: #0f172a;    /* Deep Slate 900 */
+    --lt-sidebar-border: rgba(255, 255, 255, 0.08);
     --lt-shadow-sm: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
     --lt-shadow-md: 0 10px 25px -5px rgba(15, 23, 42, 0.07), 0 8px 10px -6px rgba(15, 23, 42, 0.04);
     --lt-radius: 14px;
@@ -35,7 +38,7 @@
     --lt-primary-hover: #818cf8;
     --lt-primary-soft: rgba(99, 102, 241, 0.16);
 
-    --lt-nav-bg: #070b14;
+    --lt-sidebar-bg: #070b14;
     --lt-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.35);
     --lt-shadow-md: 0 10px 25px -5px rgba(0, 0, 0, 0.45);
 }
@@ -63,54 +66,212 @@ td.text-end {
     font-variant-numeric: tabular-nums;
 }
 
-/* Top Navigation Bar */
-.lt-navbar {
-    background: linear-gradient(135deg, var(--lt-nav-bg) 0%, #1e1b4b 100%);
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-    padding-top: 0.65rem;
-    padding-bottom: 0.65rem;
+/* =========================================================
+   App Shell & Vertical Sidebar Layout
+   ========================================================= */
+.lt-app-shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.lt-sidebar {
+    width: var(--lt-sidebar-w);
+    background: linear-gradient(180deg, var(--lt-sidebar-bg) 0%, #17153b 100%);
+    border-right: 1px solid var(--lt-sidebar-border);
+    color: #f8fafc;
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 1040;
+    display: flex;
+    flex-direction: column;
+    transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.lt-sidebar-header {
+    padding: 1.25rem 1.25rem 1rem;
+    border-bottom: 1px solid var(--lt-sidebar-border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .lt-brand {
     font-weight: 800;
-    font-size: 1.2rem;
+    font-size: 1.22rem;
     letter-spacing: -0.03em;
+    color: #ffffff;
+    text-decoration: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.65rem;
 }
 
 .lt-brand-icon {
-    width: 30px;
-    height: 30px;
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 9px;
     background: linear-gradient(135deg, #6366f1, #10b981);
     display: inline-flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-size: 0.95rem;
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4);
+    font-size: 1rem;
+    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.45);
+    flex-shrink: 0;
 }
 
-.lt-navbar .nav-link {
-    color: rgba(255, 255, 255, 0.75);
+.lt-sidebar-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 0.85rem 0.85rem 1.25rem;
+}
+
+/* Custom subtle scrollbar for sidebar */
+.lt-sidebar-body::-webkit-scrollbar {
+    width: 4px;
+}
+.lt-sidebar-body::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 999px;
+}
+
+.lt-nav-section {
+    margin-bottom: 1.15rem;
+}
+
+.lt-nav-section-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: rgba(148, 163, 184, 0.72);
+    padding: 0 0.75rem;
+    margin-bottom: 0.4rem;
+}
+
+.lt-nav-list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.lt-nav-link {
+    display: flex;
+    align-items: center;
+    gap: 0.7rem;
+    padding: 0.56rem 0.78rem;
+    border-radius: 9px;
+    color: rgba(226, 232, 240, 0.78);
+    text-decoration: none;
+    font-size: 0.89rem;
     font-weight: 500;
-    font-size: 0.9rem;
-    padding: 0.42rem 0.78rem;
-    border-radius: 8px;
-    transition: all 0.18s ease;
+    transition: all 0.16s ease;
+    position: relative;
 }
 
-.lt-navbar .nav-link:hover {
-    color: #ffffff;
-    background-color: rgba(255, 255, 255, 0.08);
+.lt-nav-link i {
+    font-size: 1.02rem;
+    opacity: 0.85;
+    width: 20px;
+    text-align: center;
+    transition: transform 0.16s ease;
 }
 
-.lt-navbar .nav-link.active {
+.lt-nav-link:hover {
     color: #ffffff;
-    background-color: rgba(99, 102, 241, 0.28);
+    background-color: rgba(255, 255, 255, 0.07);
+}
+
+.lt-nav-link:hover i {
+    transform: translateX(1px);
+    opacity: 1;
+}
+
+.lt-nav-link.active {
+    color: #ffffff;
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.34) 0%, rgba(99, 102, 241, 0.14) 100%);
     font-weight: 600;
+    box-shadow: inset 3px 0 0 #818cf8;
+}
+
+.lt-nav-link.active i {
+    color: #a5b4fc;
+    opacity: 1;
+}
+
+.lt-sidebar-footer {
+    padding: 0.9rem 1rem;
+    border-top: 1px solid var(--lt-sidebar-border);
+    background: rgba(0, 0, 0, 0.18);
+}
+
+/* Main Content Area (shifted right on desktop) */
+.lt-main-wrapper {
+    flex: 1;
+    margin-left: var(--lt-sidebar-w);
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.lt-topbar {
+    height: 60px;
+    background-color: var(--lt-surface);
+    border-bottom: 1px solid var(--lt-border);
+    padding: 0 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 1020;
+}
+
+.lt-topbar-btn {
+    color: var(--lt-text);
+    background-color: var(--lt-surface-subtle);
+    border: 1px solid var(--lt-border);
+    border-radius: 9px;
+    padding: 0.38rem 0.65rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    transition: all 0.16s ease;
+}
+
+.lt-topbar-btn:hover {
+    background-color: var(--lt-primary-soft);
+    border-color: var(--lt-primary);
+    color: var(--lt-primary);
+}
+
+/* Responsive Drawer Behavior on Mobile / Tablet (< 992px) */
+@media (max-width: 991.98px) {
+    .lt-sidebar {
+        transform: translateX(-100%);
+    }
+    .lt-sidebar.show {
+        transform: translateX(0);
+    }
+    .lt-main-wrapper {
+        margin-left: 0;
+    }
+    .lt-sidebar-backdrop {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(15, 23, 42, 0.55);
+        backdrop-filter: blur(2px);
+        z-index: 1035;
+    }
+    .lt-sidebar-backdrop.show {
+        display: block;
+    }
 }
 
 /* Cards */
@@ -228,20 +389,6 @@ td.text-end {
     box-shadow: var(--lt-shadow-sm);
 }
 
-/* Theme Toggle Button */
-.theme-toggle-btn {
-    color: rgba(255, 255, 255, 0.85);
-    background: rgba(255, 255, 255, 0.08);
-    border: 1px solid rgba(255, 255, 255, 0.12);
-    border-radius: 8px;
-    padding: 0.35rem 0.6rem;
-}
-
-.theme-toggle-btn:hover {
-    color: #fff;
-    background: rgba(255, 255, 255, 0.16);
-}
-
 /* Calendar Day Cells */
 .lt-cal-cell {
     height: 98px;
@@ -275,12 +422,18 @@ td.text-end {
 
 /* Clean Print Layout for Reports & Statements */
 @media print {
-    .lt-navbar,
+    .lt-sidebar,
+    .lt-topbar,
+    .lt-sidebar-backdrop,
     footer,
     .no-print,
     .btn,
     form {
         display: none !important;
+    }
+
+    .lt-main-wrapper {
+        margin-left: 0 !important;
     }
 
     body {
@@ -294,7 +447,7 @@ td.text-end {
         break-inside: avoid;
     }
 
-    .container {
+    .container-fluid {
         max-width: 100% !important;
         width: 100% !important;
         padding: 0 !important;

@@ -348,3 +348,66 @@ def export_report(request):
         writer.writerow(["Income", i.income_date, i.description, i.get_source_display(), "-", i.amount, i.notes])
 
     return response
+
+
+@login_required
+def simulator_view(request):
+    today = timezone.localdate()
+
+    # Use up to the last 3 months of actual data (or current month if new) for realistic baselines
+    three_months_ago = (today.replace(day=1) - timedelta(days=60)).replace(day=1)
+    recent_expenses = Expense.objects.filter(
+        user=request.user,
+        is_archived=False,
+        expense_date__gte=three_months_ago
+    )
+    recent_incomes = Income.objects.filter(
+        user=request.user,
+        is_archived=False,
+        income_date__gte=three_months_ago
+    )
+
+    distinct_exp_months = recent_expenses.dates('expense_date', 'month').count() or 1
+    distinct_inc_months = recent_incomes.dates('income_date', 'month').count() or 1
+
+    total_recent_exp = recent_expenses.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    total_recent_inc = recent_incomes.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+
+    avg_monthly_income = round(total_recent_inc / Decimal(distinct_inc_months), 2)
+    avg_monthly_expense = round(total_recent_exp / Decimal(distinct_exp_months), 2)
+
+    # Category-wise monthly averages for interactive sliders
+    raw_categories = list(
+        recent_expenses.values('category__id', 'category__name')
+        .annotate(total=Sum('amount'))
+        .order_by('-total')
+    )
+
+    category_baselines = []
+    for row in raw_categories:
+        monthly_avg = round(row['total'] / Decimal(distinct_exp_months), 2)
+        category_baselines.append({
+            'id': row['category__id'],
+            'name': row['category__name'],
+            'baseline': float(monthly_avg),
+        })
+
+    # Fallback sample categories if the user has zero logged expenses yet
+    if not category_baselines:
+        category_baselines = [
+            {'id': 1, 'name': 'Food & Dining', 'baseline': 8000.0},
+            {'id': 2, 'name': 'Shopping & Lifestyle', 'baseline': 6000.0},
+            {'id': 3, 'name': 'Transport & Fuel', 'baseline': 4000.0},
+            {'id': 4, 'name': 'Subscriptions & Bills', 'baseline': 3000.0},
+        ]
+        if avg_monthly_income == 0:
+            avg_monthly_income = Decimal('50000.00')
+
+    context = {
+        'baseline_income': float(avg_monthly_income),
+        'baseline_expense': float(sum(c['baseline'] for c in category_baselines)),
+        'category_baselines': category_baselines,
+        'category_baselines_json': json.dumps(category_baselines),
+        'months_sampled': distinct_exp_months,
+    }
+    return render(request, 'reports/simulator.html', context)

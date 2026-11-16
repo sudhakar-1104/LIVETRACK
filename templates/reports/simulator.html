@@ -1,0 +1,334 @@
+{% extends 'base.html' %}
+{% block title %}What-If Savings Simulator | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="fw-bold mb-0">What-If Savings Simulator</h4>
+            <span class="badge bg-primary-subtle text-primary">Sandbox Mode</span>
+        </div>
+        <small class="text-muted">
+            Pre-loaded with your {{ months_sampled }}-month average baseline • Changes here do not affect your actual records
+        </small>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <button type="button" id="presetLeanBtn" class="btn btn-outline-success btn-sm">
+            <i class="bi bi-scissors me-1"></i>Trim All Expenses -20%
+        </button>
+        <button type="button" id="presetBoostBtn" class="btn btn-outline-primary btn-sm">
+            <i class="bi bi-graph-up-arrow me-1"></i>+15% Income & -15% Spend
+        </button>
+        <button type="button" id="resetSimBtn" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-arrow-counterclockwise me-1"></i>Reset Baseline
+        </button>
+    </div>
+</div>
+
+<!-- Live Impact KPI Strip -->
+<div class="row g-3 mb-4">
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 kpi-card kpi-success">
+            <span class="text-muted small fw-semibold">Simulated Monthly Savings</span>
+            <h3 id="simMonthlySavings" class="fw-bold text-success mb-1">₹0</h3>
+            <small id="simSavingsDelta" class="text-muted">Baseline: ₹0/mo</small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 kpi-card">
+            <span class="text-muted small fw-semibold">Simulated Savings Rate</span>
+            <h3 id="simSavingsRate" class="fw-bold text-primary mb-1">0%</h3>
+            <small id="simRateDelta" class="text-muted">Baseline: 0%</small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 kpi-card kpi-danger">
+            <span class="text-muted small fw-semibold">Simulated Monthly Spend</span>
+            <h3 id="simMonthlyExpense" class="fw-bold text-danger mb-1">₹0</h3>
+            <small id="simExpenseDelta" class="text-muted">Baseline: ₹0/mo</small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100 kpi-card kpi-warning">
+            <span class="text-muted small fw-semibold">Extra Annual Savings</span>
+            <h3 id="simAnnualExtra" class="fw-bold text-success mb-1">+₹0</h3>
+            <small id="simFiveYearTotal" class="text-muted">5-Year Total: ₹0</small>
+        </div>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Interactive Income & Category Sliders -->
+    <div class="col-lg-5">
+        <div class="card p-4 h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-sliders2 text-primary me-2"></i>Adjust Monthly Parameters</h6>
+
+            <!-- Monthly Income Control -->
+            <div class="p-3 rounded-3 mb-4 border" style="background-color: var(--lt-surface-subtle);">
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <label for="incomeSlider" class="fw-bold small text-success mb-0">
+                        <i class="bi bi-cash-stack me-1"></i>Monthly Income (INR)
+                    </label>
+                    <div class="input-group input-group-sm" style="width: 145px;">
+                        <span class="input-group-text">₹</span>
+                        <input type="number" id="incomeInput" class="form-control fw-bold text-end" step="500" min="0">
+                    </div>
+                </div>
+                <input type="range" id="incomeSlider" class="form-range" min="0" max="300000" step="500">
+                <div class="d-flex justify-content-between text-muted" style="font-size: 0.72rem;">
+                    <span>₹0</span>
+                    <span id="incomeBaselineHint">Baseline: ₹{{ baseline_income|floatformat:0 }}</span>
+                    <span>₹3,00,000</span>
+                </div>
+            </div>
+
+            <!-- Expense Category Sliders -->
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="fw-bold small text-uppercase text-muted">Expense Categories</span>
+                <span class="small text-muted">Drag slider to test cuts</span>
+            </div>
+
+            <div id="categorySlidersContainer" class="d-flex flex-column gap-3">
+                {% for cat in category_baselines %}
+                <div class="border-bottom pb-3">
+                    <div class="d-flex justify-content-between align-items-center mb-1">
+                        <div>
+                            <span class="fw-semibold small">{{ cat.name }}</span>
+                            <span id="catPctBadge_{{ cat.id }}" class="badge bg-secondary-subtle text-secondary ms-1" style="font-size: 0.68rem;">0%</span>
+                        </div>
+                        <div class="text-end">
+                            <span id="catSimVal_{{ cat.id }}" class="fw-bold small">₹{{ cat.baseline|floatformat:0 }}</span>
+                            <small class="text-muted d-block" style="font-size: 0.7rem;">Base: ₹{{ cat.baseline|floatformat:0 }}</small>
+                        </div>
+                    </div>
+                    <input type="range"
+                           class="form-range category-slider"
+                           data-cat-id="{{ cat.id }}"
+                           data-baseline="{{ cat.baseline }}"
+                           min="0"
+                           max="{{ cat.baseline|floatformat:0 }}"
+                           step="100"
+                           value="{{ cat.baseline|floatformat:0 }}">
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column: Visual Comparisons & Projections -->
+    <div class="col-lg-7">
+        <div class="card p-4 mb-4">
+            <h6 class="fw-bold mb-1">Baseline vs. Simulated Monthly Cash-Flow</h6>
+            <small class="text-muted d-block mb-3">Immediate side-by-side comparison of Income, Spending, and Net Savings</small>
+            <canvas id="comparisonBarChart" height="135"></canvas>
+        </div>
+
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-center mb-1">
+                <h6 class="fw-bold mb-0">12-Month Cumulative Savings Trajectory</h6>
+                <span id="twelveMonthGainBadge" class="badge bg-success-subtle text-success">+₹0 in 12 months</span>
+            </div>
+            <small class="text-muted d-block mb-3">How your adjusted habits compound over the next year vs. current pace</small>
+            <canvas id="cumulativeLineChart" height="145"></canvas>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script>
+    const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
+    Chart.defaults.borderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)';
+
+    const baselineIncome = parseFloat('{{ baseline_income|default:0 }}') || 0;
+    const categoriesData = JSON.parse('{{ category_baselines_json|escapejs }}');
+    const baselineExpense = categoriesData.reduce((acc, c) => acc + c.baseline, 0);
+    const baselineSavings = baselineIncome - baselineExpense;
+
+    const incomeSlider = document.getElementById('incomeSlider');
+    const incomeInput = document.getElementById('incomeInput');
+    const catSliders = document.querySelectorAll('.category-slider');
+
+    // Configure dynamic slider max bounds (at least 2x baseline so user can simulate increases too)
+    const maxIncomeBound = Math.max(100000, Math.ceil((baselineIncome * 2) / 5000) * 5000);
+    incomeSlider.max = maxIncomeBound;
+    incomeSlider.value = baselineIncome;
+    incomeInput.value = baselineIncome.toFixed(0);
+
+    catSliders.forEach(slider => {
+        const base = parseFloat(slider.dataset.baseline) || 0;
+        slider.max = Math.max(5000, Math.ceil((base * 1.5) / 500) * 500);
+        slider.value = base;
+    });
+
+    function fmtINR(val) {
+        const sign = val < 0 ? '-' : '';
+        return sign + '₹' + Math.abs(Math.round(val)).toLocaleString('en-IN');
+    }
+
+    // Initialize Charts
+    const barChart = new Chart(document.getElementById('comparisonBarChart'), {
+        type: 'bar',
+        data: {
+            labels: ['Monthly Income', 'Monthly Expenses', 'Net Monthly Savings'],
+            datasets: [
+                {
+                    label: 'Current Baseline (₹)',
+                    data: [baselineIncome, baselineExpense, baselineSavings],
+                    backgroundColor: 'rgba(100, 116, 139, 0.45)',
+                    borderRadius: 6
+                },
+                {
+                    label: 'Simulated Scenario (₹)',
+                    data: [baselineIncome, baselineExpense, baselineSavings],
+                    backgroundColor: ['#10b981', '#ef4444', '#4f46e5'],
+                    borderRadius: 6
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: true } }
+        }
+    });
+
+    const monthLabels = Array.from({ length: 12 }, (_, i) => `Month ${i + 1}`);
+    const lineChart = new Chart(document.getElementById('cumulativeLineChart'), {
+        type: 'line',
+        data: {
+            labels: monthLabels,
+            datasets: [
+                {
+                    label: 'Current Pace Cumulative Savings (₹)',
+                    data: monthLabels.map((_, i) => baselineSavings * (i + 1)),
+                    borderColor: '#94a3b8',
+                    borderDash: [6, 4],
+                    tension: 0.25,
+                    fill: false
+                },
+                {
+                    label: 'Simulated Cumulative Savings (₹)',
+                    data: monthLabels.map((_, i) => baselineSavings * (i + 1)),
+                    borderColor: '#10b981',
+                    backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                    tension: 0.25,
+                    fill: true
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            plugins: { legend: { position: 'top' } },
+            scales: { y: { beginAtZero: false } }
+        }
+    });
+
+    function recalculateSimulation() {
+        const simIncome = parseFloat(incomeInput.value) || 0;
+        let simExpense = 0;
+
+        catSliders.forEach(slider => {
+            const id = slider.dataset.catId;
+            const base = parseFloat(slider.dataset.baseline) || 0;
+            const val = parseFloat(slider.value) || 0;
+            simExpense += val;
+
+            document.getElementById(`catSimVal_${id}`).textContent = fmtINR(val);
+            const badge = document.getElementById(`catPctBadge_${id}`);
+            if (base > 0) {
+                const diffPct = Math.round(((val - base) / base) * 100);
+                badge.textContent = (diffPct > 0 ? '+' : '') + diffPct + '%';
+                badge.className = 'badge ms-1 ' + (
+                    diffPct < 0 ? 'bg-success-subtle text-success' :
+                    diffPct > 0 ? 'bg-danger-subtle text-danger' :
+                    'bg-secondary-subtle text-secondary'
+                );
+            }
+        });
+
+        const simSavings = simIncome - simExpense;
+        const monthlyDiff = simSavings - baselineSavings;
+        const annualDiff = monthlyDiff * 12;
+        const fiveYearTotal = simSavings * 60;
+
+        const baseRate = baselineIncome > 0 ? ((baselineSavings / baselineIncome) * 100).toFixed(1) : '0.0';
+        const simRate = simIncome > 0 ? ((simSavings / simIncome) * 100).toFixed(1) : '0.0';
+
+        // Update KPI Cards
+        const savingsEl = document.getElementById('simMonthlySavings');
+        savingsEl.textContent = fmtINR(simSavings);
+        savingsEl.className = 'fw-bold mb-1 ' + (simSavings >= 0 ? 'text-success' : 'text-danger');
+        document.getElementById('simSavingsDelta').textContent =
+            `Baseline: ${fmtINR(baselineSavings)}/mo (${monthlyDiff >= 0 ? '+' : ''}${fmtINR(monthlyDiff)})`;
+
+        document.getElementById('simSavingsRate').textContent = `${simRate}%`;
+        document.getElementById('simRateDelta').textContent = `Baseline: ${baseRate}%`;
+
+        document.getElementById('simMonthlyExpense').textContent = fmtINR(simExpense);
+        const expDiff = simExpense - baselineExpense;
+        document.getElementById('simExpenseDelta').textContent =
+            `Baseline: ${fmtINR(baselineExpense)}/mo (${expDiff >= 0 ? '+' : ''}${fmtINR(expDiff)})`;
+
+        const annualEl = document.getElementById('simAnnualExtra');
+        annualEl.textContent = (annualDiff >= 0 ? '+' : '') + fmtINR(annualDiff);
+        annualEl.className = 'fw-bold mb-1 ' + (annualDiff >= 0 ? 'text-success' : 'text-danger');
+        document.getElementById('simFiveYearTotal').textContent = `5-Year Total Saved: ${fmtINR(fiveYearTotal)}`;
+
+        const badge12m = document.getElementById('twelveMonthGainBadge');
+        badge12m.textContent = `${annualDiff >= 0 ? '+' : ''}${fmtINR(annualDiff)} vs. baseline in 12 mo`;
+        badge12m.className = 'badge ' + (annualDiff >= 0 ? 'bg-success-subtle text-success' : 'bg-danger-subtle text-danger');
+
+        // Update Charts
+        barChart.data.datasets[1].data = [simIncome, simExpense, simSavings];
+        barChart.update();
+
+        lineChart.data.datasets[1].data = monthLabels.map((_, i) => simSavings * (i + 1));
+        lineChart.update();
+    }
+
+    // Bind events
+    incomeSlider.addEventListener('input', () => {
+        incomeInput.value = incomeSlider.value;
+        recalculateSimulation();
+    });
+    incomeInput.addEventListener('input', () => {
+        incomeSlider.value = incomeInput.value;
+        recalculateSimulation();
+    });
+    catSliders.forEach(slider => slider.addEventListener('input', recalculateSimulation));
+
+    // Preset Buttons
+    document.getElementById('presetLeanBtn').addEventListener('click', () => {
+        catSliders.forEach(s => {
+            const base = parseFloat(s.dataset.baseline) || 0;
+            s.value = Math.round((base * 0.8) / 100) * 100;
+        });
+        recalculateSimulation();
+    });
+
+    document.getElementById('presetBoostBtn').addEventListener('click', () => {
+        const boostedInc = Math.round((baselineIncome * 1.15) / 500) * 500;
+        incomeSlider.value = boostedInc;
+        incomeInput.value = boostedInc;
+        catSliders.forEach(s => {
+            const base = parseFloat(s.dataset.baseline) || 0;
+            s.value = Math.round((base * 0.85) / 100) * 100;
+        });
+        recalculateSimulation();
+    });
+
+    document.getElementById('resetSimBtn').addEventListener('click', () => {
+        incomeSlider.value = baselineIncome;
+        incomeInput.value = baselineIncome.toFixed(0);
+        catSliders.forEach(s => {
+            s.value = parseFloat(s.dataset.baseline) || 0;
+        });
+        recalculateSimulation();
+    });
+
+    recalculateSimulation();
+</script>
+{% endblock %}
