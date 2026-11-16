@@ -1,0 +1,90 @@
+{% extends 'base.html' %}
+{% block title %}Recurring Bills | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">Recurring Expenses & Bills</h4>
+        <small class="text-muted">Estimated Monthly Commitment: <strong class="text-danger">₹{{ monthly_committed }}</strong></small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'finance:expense_list' %}" class="btn btn-outline-secondary btn-sm">All Expenses</a>
+        <a href="{% url 'finance:recurring_create' %}" class="btn btn-primary btn-sm">
+            <i class="bi bi-plus-lg me-1"></i>New Recurring Bill
+        </a>
+    </div>
+</div>
+
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Bill / Description</th>
+                    <th>Category & Method</th>
+                    <th>Frequency</th>
+                    <th>Next Due Date</th>
+                    <th class="text-end">Amount</th>
+                    <th>Status</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in recurring_items %}
+                <tr class="{% if not item.is_active %}table-light text-muted{% endif %}">
+                    <td>
+                        <div class="fw-semibold">{{ item.description }}</div>
+                        {% if item.end_date %}<small class="text-muted">Ends: {{ item.end_date|date:"d M Y" }}</small>{% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-light text-dark border">{{ item.category.name }}</span>
+                        <small class="text-muted d-block">{{ item.payment_method.name }}</small>
+                    </td>
+                    <td>{{ item.get_frequency_display }}</td>
+                    <td>
+                        {% if item.is_active %}
+                            <span class="fw-semibold">{{ item.next_due_date|date:"d M Y" }}</span>
+                        {% else %}
+                            —
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-bold text-danger">₹{{ item.amount }}</td>
+                    <td>
+                        {% if item.is_active %}
+                            <span class="badge bg-success">Active</span>
+                        {% else %}
+                            <span class="badge bg-secondary">Paused / Ended</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        {% if item.is_active %}
+                        <form method="post" action="{% url 'finance:recurring_run_now' item.pk %}" class="d-inline" title="Log expense today & advance schedule">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-success">Log Now</button>
+                        </form>
+                        {% endif %}
+                        <form method="post" action="{% url 'finance:recurring_toggle' item.pk %}" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-secondary">
+                                {% if item.is_active %}Pause{% else %}Resume{% endif %}
+                            </button>
+                        </form>
+                        <a href="{% url 'finance:recurring_edit' item.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                        <form method="post" action="{% url 'finance:recurring_delete' item.pk %}" class="d-inline" onsubmit="return confirm('Delete this recurring schedule?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-4 text-muted">
+                        No recurring bills configured yet. Click <strong>New Recurring Bill</strong> to automate monthly rent, subscriptions, or utilities!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

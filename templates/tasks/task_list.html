@@ -1,0 +1,156 @@
+{% extends 'base.html' %}
+{% block title %}Tasks | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">Tasks & To-Dos</h4>
+        <small class="text-muted">
+            Completion Rate: <strong class="text-primary">{{ completion_rate }}%</strong>
+            ({{ completed_count }} of {{ eligible_count }} eligible tasks)
+        </small>
+    </div>
+    <div class="d-flex gap-2">
+        <a href="{% url 'tasks:calendar' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center">
+            <i class="bi bi-calendar3 me-1"></i>Calendar View
+        </a>
+        <a href="{% url 'tasks:create' %}" class="btn btn-primary btn-sm d-flex align-items-center">
+            <i class="bi bi-plus-lg me-1"></i>New Task
+        </a>
+    </div>
+</div>
+
+<!-- Filters Card -->
+<div class="card p-3 mb-4">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Search</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Task title or notes...">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">Status</label>
+            <select name="status" class="form-select form-select-sm">
+                <option value="">All Statuses</option>
+                {% for code, label in status_choices %}
+                    <option value="{{ code }}" {% if status_filter == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">Priority</label>
+            <select name="priority" class="form-select form-select-sm">
+                <option value="">All Priorities</option>
+                {% for code, label in priority_choices %}
+                    <option value="{{ code }}" {% if priority_filter == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Category</label>
+            <select name="category" class="form-select form-select-sm">
+                <option value="">All Categories</option>
+                {% for c in categories %}
+                    <option value="{{ c.id }}" {% if category_id == c.id|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-dark btn-sm w-100">Filter</button>
+            <a href="{% url 'tasks:list' %}" class="btn btn-outline-secondary btn-sm">Clear</a>
+        </div>
+    </form>
+</div>
+
+<!-- Tasks Table -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead>
+                <tr>
+                    <th style="width: 44px;">Done</th>
+                    <th>Task</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for task in tasks %}
+                <tr class="{% if task.status == 'COMPLETED' %}opacity-75{% endif %}">
+                    <td>
+                        <form method="post" action="{% url 'tasks:toggle' task.pk %}">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm py-0 px-1 {% if task.status == 'COMPLETED' %}btn-success{% else %}btn-outline-secondary{% endif %}" title="Toggle Complete">
+                                <i class="bi bi-check-lg"></i>
+                            </button>
+                        </form>
+                    </td>
+                    <td>
+                        <div class="fw-semibold {% if task.status == 'COMPLETED' %}text-decoration-line-through text-muted{% endif %}">
+                            {{ task.title }}
+                            {% if task.recurrence != 'NONE' %}
+                                <span class="badge bg-info-subtle text-info ms-1" title="Repeats {{ task.get_recurrence_display }}">
+                                    <i class="bi bi-arrow-repeat"></i> {{ task.get_recurrence_display }}
+                                </span>
+                            {% endif %}
+                        </div>
+                        {% if task.description %}
+                            <small class="text-muted">{{ task.description|truncatechars:70 }}</small>
+                        {% endif %}
+                    </td>
+                    <td>
+                        {% if task.category %}
+                            <span class="badge bg-secondary-subtle text-secondary-emphasis">{{ task.category.name }}</span>
+                        {% else %}
+                            <span class="text-muted small">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge {% if task.priority == 'HIGH' %}bg-danger-subtle text-danger{% elif task.priority == 'MEDIUM' %}bg-warning-subtle text-warning-emphasis{% else %}bg-secondary-subtle text-secondary{% endif %}">
+                            {{ task.get_priority_display }}
+                        </span>
+                    </td>
+                    <td>
+                        <span class="badge {% if task.status == 'COMPLETED' %}bg-success-subtle text-success{% elif task.status == 'IN_PROGRESS' %}bg-primary-subtle text-primary{% elif task.status == 'CANCELLED' %}bg-secondary-subtle text-secondary{% else %}bg-body-secondary text-body{% endif %}">
+                            {{ task.get_status_display }}
+                        </span>
+                    </td>
+                    <td>
+                        {% if task.due_date %}
+                            <span class="small {% if task.is_overdue %}text-danger fw-bold{% else %}text-muted{% endif %}">
+                                {{ task.due_date|date:"d M Y" }}
+                                {% if task.is_overdue %}
+                                    <span class="badge bg-danger ms-1">Overdue</span>
+                                {% endif %}
+                            </span>
+                        {% else %}
+                            <span class="text-muted small">No due date</span>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'tasks:edit' task.pk %}" class="btn btn-sm btn-outline-primary" title="Edit">
+                            <i class="bi bi-pencil"></i>
+                        </a>
+                        <form method="post" action="{% url 'tasks:delete' task.pk %}" class="d-inline" onsubmit="return confirm('Archive this task?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger" title="Archive">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="text-center py-5 text-muted">
+                        <i class="bi bi-clipboard-check fs-3 d-block mb-2"></i>
+                        No tasks match your filters. Click <strong>New Task</strong> to add one!
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

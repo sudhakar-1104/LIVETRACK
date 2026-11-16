@@ -1,0 +1,257 @@
+{% extends 'base.html' %}
+{% block title %}Advanced Analytics & Insights | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">Advanced Analytics & Insights</h4>
+        <small class="text-muted">{{ month_name }} {{ selected_year }} • 12-Month Historical Intelligence</small>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-center">
+        <select name="month" class="form-select form-select-sm" style="width: 140px;">
+            {% for m_num, m_name in month_choices %}
+                <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+            {% endfor %}
+        </select>
+        <input type="number" name="year" value="{{ selected_year }}" class="form-control form-control-sm" style="width: 95px;">
+        <button type="submit" class="btn btn-dark btn-sm">Analyze</button>
+    </form>
+</div>
+
+<!-- Row 1: Core Financial & Velocity KPIs -->
+<div class="row g-3 mb-3">
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Calendar Daily Avg</span>
+            <h4 class="fw-bold text-dark mb-1">₹{{ avg_daily_expense }}</h4>
+            <small class="text-muted">Active spend days ({{ active_spend_days }}d): <strong>₹{{ active_day_avg }}</strong></small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Projected Month Spend</span>
+            <h4 class="fw-bold text-danger mb-1">₹{{ projected_month_spend }}</h4>
+            <small class="text-muted">Actual MTD: ₹{{ total_expense }}</small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Savings Rate</span>
+            {% if savings_rate is not None %}
+                <h4 class="fw-bold {% if savings_rate >= 20 %}text-success{% elif savings_rate >= 0 %}text-primary{% else %}text-danger{% endif %} mb-1">
+                    {{ savings_rate }}%
+                </h4>
+                <small class="text-muted">Net: ₹{{ net_cash_flow }}</small>
+            {% else %}
+                <h5 class="fw-bold text-muted mb-1">N/A</h5>
+                <small class="text-muted">No income recorded</small>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Month-on-Month Change</span>
+            {% if mom_change is not None %}
+                <h4 class="fw-bold {% if mom_change > 0 %}text-danger{% else %}text-success{% endif %} mb-1">
+                    {% if mom_change > 0 %}+{% endif %}{{ mom_change }}%
+                </h4>
+                <small class="text-muted">Prev month: ₹{{ prev_total }}</small>
+            {% else %}
+                <h5 class="fw-bold text-muted mb-1">N/A</h5>
+                <small class="text-muted">No prior month baseline</small>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Row 2: Behavioral Highlights -->
+<div class="row g-3 mb-4">
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Top Expense Category</span>
+            {% if top_category %}
+                <h5 class="fw-bold text-primary mb-0">{{ top_category.category__name }}</h5>
+                <small class="text-muted">₹{{ top_category.total }} ({{ top_category.share }}% of spend)</small>
+            {% else %}
+                <h5 class="fw-bold text-muted mb-0">—</h5>
+                <small class="text-muted">No spending recorded</small>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Highest-Spend Date</span>
+            {% if highest_spend_day %}
+                <h5 class="fw-bold text-danger mb-0">₹{{ highest_spend_day.total }}</h5>
+                <small class="text-muted">{{ highest_spend_day.expense_date|date:"l, d M Y" }}</small>
+            {% else %}
+                <h5 class="fw-bold text-muted mb-0">—</h5>
+                <small class="text-muted">No spending recorded</small>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Peak Spending Day of Week</span>
+            {% if peak_weekday %}
+                <h5 class="fw-bold text-dark mb-0">{{ peak_weekday }}</h5>
+                <small class="text-muted">Task completion this month: <strong>{{ completion_rate }}%</strong></small>
+            {% else %}
+                <h5 class="fw-bold text-muted mb-0">—</h5>
+                <small class="text-muted">No spending recorded</small>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Row 3: 12-Month Rolling Income/Expense/Savings Chart + Task Productivity Line -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3">12-Month Income, Expenses & Net Cash-Flow Trend</h6>
+            <canvas id="trendChart" height="140"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3">12-Month Task Completion Rate (%)</h6>
+            <canvas id="taskTrendChart" height="295"></canvas>
+        </div>
+    </div>
+</div>
+
+<!-- Row 4: Category Doughnut, Weekday Pattern & Payment Method Split -->
+<div class="row g-4">
+    <div class="col-lg-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3">Spending by Category</h6>
+            {% if category_breakdown %}
+                <canvas id="categoryChart" height="230"></canvas>
+            {% else %}
+                <p class="text-muted small text-center my-5">Add expenses in {{ month_name }} to see category distribution.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3">Spending by Day of Week</h6>
+            <canvas id="weekdayChart" height="230"></canvas>
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3">Payment Method Breakdown</h6>
+            <table class="table table-sm mb-0">
+                <thead class="table-light">
+                    <tr><th>Method</th><th class="text-end">Amount</th><th class="text-end">Share</th></tr>
+                </thead>
+                <tbody>
+                    {% for row in payment_breakdown %}
+                    <tr>
+                        <td>{{ row.payment_method__name }}</td>
+                        <td class="text-end fw-semibold">₹{{ row.total }}</td>
+                        <td class="text-end text-muted">{{ row.share }}%</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="3" class="text-center text-muted py-3">No transactions recorded.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+
+
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+
+<script>
+    const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
+    Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
+    Chart.defaults.borderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)';
+    const catLabels = JSON.parse('{{ cat_labels_json|escapejs }}');
+    const catValues = JSON.parse('{{ cat_values_json|escapejs }}');
+    if (catLabels.length > 0 && document.getElementById('categoryChart')) {
+        new Chart(document.getElementById('categoryChart'), {
+            type: 'doughnut',
+            data: {
+                labels: catLabels,
+                datasets: [{
+                    data: catValues,
+                    backgroundColor: ['#0d6efd', '#dc3545', '#ffc107', '#198754', '#0dcaf0', '#6f42c1', '#fd7e14', '#6c757d']
+                }]
+            },
+            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+        });
+    }
+
+    const trendLabels = JSON.parse('{{ trend_labels_json|escapejs }}');
+    const trendExpenses = JSON.parse('{{ trend_expenses_json|escapejs }}');
+    const trendIncomes = JSON.parse('{{ trend_incomes_json|escapejs }}');
+    const trendSavings = JSON.parse('{{ trend_savings_json|escapejs }}');
+    if (document.getElementById('trendChart')) {
+        new Chart(document.getElementById('trendChart'), {
+            type: 'bar',
+            data: {
+                labels: trendLabels,
+                datasets: [
+                    { label: 'Income (₹)', data: trendIncomes, backgroundColor: '#198754' },
+                    { label: 'Expenses (₹)', data: trendExpenses, backgroundColor: '#dc3545' },
+                    { label: 'Net Savings (₹)', data: trendSavings, type: 'line', borderColor: '#0d6efd', backgroundColor: '#0d6efd', tension: 0.3 }
+                ]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    const trendTaskRates = JSON.parse('{{ trend_task_rates_json|escapejs }}');
+    if (document.getElementById('taskTrendChart')) {
+        new Chart(document.getElementById('taskTrendChart'), {
+            type: 'line',
+            data: {
+                labels: trendLabels,
+                datasets: [{
+                    label: 'Completion %',
+                    data: trendTaskRates,
+                    borderColor: '#6f42c1',
+                    backgroundColor: 'rgba(111, 66, 193, 0.15)',
+                    fill: true,
+                    tension: 0.3
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true, max: 100 } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+
+    const weekdayLabels = JSON.parse('{{ weekday_labels_json|escapejs }}');
+    const weekdayValues = JSON.parse('{{ weekday_values_json|escapejs }}');
+    if (document.getElementById('weekdayChart')) {
+        new Chart(document.getElementById('weekdayChart'), {
+            type: 'bar',
+            data: {
+                labels: weekdayLabels,
+                datasets: [{
+                    label: 'Spend (₹)',
+                    data: weekdayValues,
+                    backgroundColor: '#fd7e14'
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: { y: { beginAtZero: true } },
+                plugins: { legend: { display: false } }
+            }
+        });
+    }
+</script>
+{% endblock %}

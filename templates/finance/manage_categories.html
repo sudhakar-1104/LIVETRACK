@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% block title %}Categories & Payment Methods | LifeTrack{% endblock %}
+
+{% block content %}
+<h4 class="fw-bold mb-3">Categories & Payment Methods</h4>
+<div class="row g-4">
+    <!-- Expense Categories -->
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Expense Categories</h6>
+            <form method="post" class="d-flex gap-2 mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_expense_cat">
+                {{ exp_form.name }}
+                <button type="submit" class="btn btn-primary btn-sm">Add</button>
+            </form>
+            <ul class="list-group list-group-flush small">
+                {% for c in expense_categories %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span class="{% if not c.active %}text-muted text-decoration-line-through{% endif %}">{{ c.name }}</span>
+                    {% if c.user %}
+                        <form method="post" action="{% url 'finance:toggle_category' 'expense' c.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-secondary btn-sm py-0 px-2">{% if c.active %}Disable{% else %}Enable{% endif %}</button>
+                        </form>
+                    {% else %}
+                        <span class="badge bg-light text-muted border">Default</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Payment Methods -->
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Payment Methods</h6>
+            <form method="post" class="d-flex gap-2 mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_payment_method">
+                {{ pay_form.name }}
+                <button type="submit" class="btn btn-primary btn-sm">Add</button>
+            </form>
+            <ul class="list-group list-group-flush small">
+                {% for p in payment_methods %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span class="{% if not p.active %}text-muted text-decoration-line-through{% endif %}">{{ p.name }}</span>
+                    {% if p.user %}
+                        <form method="post" action="{% url 'finance:toggle_category' 'payment' p.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-secondary btn-sm py-0 px-2">{% if p.active %}Disable{% else %}Enable{% endif %}</button>
+                        </form>
+                    {% else %}
+                        <span class="badge bg-light text-muted border">Default</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    <!-- Task Categories -->
+    <div class="col-md-4">
+        <div class="card p-3">
+            <h6 class="fw-bold mb-3">Task Categories</h6>
+            <form method="post" class="d-flex gap-2 mb-3">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_task_cat">
+                {{ task_form.name }}
+                <button type="submit" class="btn btn-primary btn-sm">Add</button>
+            </form>
+            <ul class="list-group list-group-flush small">
+                {% for t in task_categories %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0">
+                    <span class="{% if not t.active %}text-muted text-decoration-line-through{% endif %}">{{ t.name }}</span>
+                    {% if t.user %}
+                        <form method="post" action="{% url 'finance:toggle_category' 'task' t.pk %}">
+                            {% csrf_token %}
+                            <button class="btn btn-outline-secondary btn-sm py-0 px-2">{% if t.active %}Disable{% else %}Enable{% endif %}</button>
+                        </form>
+                    {% else %}
+                        <span class="badge bg-light text-muted border">Default</span>
+                    {% endif %}
+                </li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+{% block title %}Budgets | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">Monthly Budget Planner</h4>
+        <small class="text-muted">{{ month_name }} {{ selected_year }} • Warning Threshold: <strong>{{ threshold }}%</strong></small>
+    </div>
+    <form method="get" class="d-flex gap-2 align-items-center">
+        <select name="month" class="form-select form-select-sm" style="width: 140px;">
+            {% for m_num, m_name in month_choices %}
+                <option value="{{ m_num }}" {% if selected_month == m_num %}selected{% endif %}>{{ m_name }}</option>
+            {% endfor %}
+        </select>
+        <input type="number" name="year" value="{{ selected_year }}" class="form-control form-control-sm" style="width: 95px;">
+        <button type="submit" class="btn btn-dark btn-sm">View</button>
+    </form>
+</div>
+
+<div class="row g-4">
+    <!-- Left Column: Set / Update Budget Form -->
+    <div class="col-lg-4">
+        <div class="card p-4">
+            <div class="d-flex align-items-center gap-2 mb-3">
+                <span class="badge bg-primary-subtle text-primary p-2"><i class="bi bi-sliders"></i></span>
+                <div>
+                    <h6 class="fw-bold mb-0">Set Monthly Limit</h6>
+                    <small class="text-muted">Overall or category-specific cap</small>
+                </div>
+            </div>
+            <form method="post">
+                {% csrf_token %}
+                <input type="hidden" name="year" value="{{ selected_year }}">
+                <input type="hidden" name="month" value="{{ selected_month }}">
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger small py-2">{{ form.non_field_errors }}</div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label small fw-semibold">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger small mt-1">{{ field.errors }}</div>{% endif %}
+                    </div>
+                {% endfor %}
+
+                <button type="submit" class="btn btn-primary w-100">
+                    <i class="bi bi-check2-circle me-1"></i>Save Budget Limit
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Right Column: Overall + Category Utilization -->
+    <div class="col-lg-8">
+        <!-- Overall Monthly Budget Card -->
+        <div class="card p-4 mb-4 kpi-card {% if overall_row %}{% if overall_row.status == 'exceeded' %}kpi-danger{% elif overall_row.status == 'warning' %}kpi-warning{% else %}kpi-success{% endif %}{% endif %}">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-shield-check text-primary me-2"></i>Overall Monthly Budget</h6>
+                {% if overall_row %}
+                    <form method="post" action="{% url 'budgets:delete' overall_row.budget.pk %}" onsubmit="return confirm('Remove overall budget limit?');">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-outline-danger py-0 px-2">Remove</button>
+                    </form>
+                {% endif %}
+            </div>
+
+            {% if overall_row %}
+                <div class="d-flex flex-wrap justify-content-between align-items-baseline mb-2 gap-2">
+                    <div>
+                        <span class="fs-4 fw-bold">₹{{ overall_row.spent }}</span>
+                        <span class="text-muted small">spent of <strong>₹{{ overall_row.budget.amount }}</strong></span>
+                    </div>
+                    <div>
+                        {% if overall_row.remaining >= 0 %}
+                            <span class="badge bg-success-subtle text-success">Remaining: ₹{{ overall_row.remaining }}</span>
+                        {% else %}
+                            <span class="badge bg-danger-subtle text-danger">Over Budget by ₹{{ overall_row.remaining|slice:"1:" }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="progress mb-1" style="height: 12px;">
+                    <div class="progress-bar {% if overall_row.status == 'exceeded' %}bg-danger{% elif overall_row.status == 'warning' %}bg-warning{% else %}bg-success{% endif %}"
+                         data-width="{{ overall_row.bar_width }}" style="width: 0%;"></div>
+                </div>
+                <small class="text-muted">{{ overall_row.utilization }}% utilized</small>
+                <script>
+                    document.currentScript.previousElementSibling.previousElementSibling
+                        .querySelector('.progress-bar').style.width =
+                        document.currentScript.previousElementSibling.previousElementSibling
+                            .querySelector('.progress-bar').dataset.width + '%';
+                </script>
+            {% else %}
+                <p class="text-muted small mb-0">
+                    No overall limit set for {{ month_name }} {{ selected_year }}. Select <strong>Overall Monthly Budget</strong> on the left to create one.
+                </p>
+            {% endif %}
+        </div>
+
+        <!-- Category Budgets Table -->
+        <div class="card">
+            <div class="card-header bg-transparent py-3 d-flex justify-content-between align-items-center">
+                <h6 class="fw-bold mb-0">Category Budgets ({{ category_rows|length }})</h6>
+                <small class="text-muted">Total Month Spend: <strong>₹{{ total_month_spend }}</strong></small>
+            </div>
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th>Utilization</th>
+                            <th class="text-end">Spent / Limit</th>
+                            <th class="text-end">Status</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in category_rows %}
+                        <tr>
+                            <td class="fw-semibold">{{ row.budget.category.name }}</td>
+                            <td style="min-width: 150px;">
+                                <div class="progress" style="height: 8px;">
+                                    <div class="progress-bar {% if row.status == 'exceeded' %}bg-danger{% elif row.status == 'warning' %}bg-warning{% else %}bg-success{% endif %}"
+                                         data-width="{{ row.bar_width }}" style="width: 0%;"></div>
+                                </div>
+                                <small class="text-muted">{{ row.utilization }}%</small>
+                            </td>
+                            <td class="text-end">
+                                <span class="fw-bold">₹{{ row.spent }}</span>
+                                <small class="text-muted d-block">of ₹{{ row.budget.amount }}</small>
+                            </td>
+                            <td class="text-end">
+                                {% if row.status == 'exceeded' %}
+                                    <span class="badge bg-danger-subtle text-danger">Exceeded</span>
+                                {% elif row.status == 'warning' %}
+                                    <span class="badge bg-warning-subtle text-warning-emphasis">Near Limit</span>
+                                {% else %}
+                                    <span class="badge bg-success-subtle text-success">On Track</span>
+                                {% endif %}
+                            </td>
+                            <td class="text-end">
+                                <form method="post" action="{% url 'budgets:delete' row.budget.pk %}" onsubmit="return confirm('Delete this category budget?');">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                No category budgets set for {{ month_name }} {{ selected_year }}.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <script>
+            document.querySelectorAll('.table .progress-bar[data-width]').forEach(function (bar) {
+                bar.style.width = bar.dataset.width + '%';
+            });
+        </script>
+    </div>
+</div>
+{% endblock %}

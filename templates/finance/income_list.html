@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+{% block title %}Income | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">Income</h4>
+        <small class="text-muted">Filtered Base Total: <strong class="text-success">₹{{ total_income }}</strong> ({{ incomes|length }} records)</small>
+    </div>
+    <div class="d-flex flex-wrap gap-2">
+        <a href="{% url 'finance:currencies' %}" class="btn btn-outline-secondary btn-sm d-flex align-items-center">
+            <i class="bi bi-currency-exchange me-1"></i>Currencies
+        </a>
+        <a href="{% url 'finance:income_create' %}" class="btn btn-success btn-sm d-flex align-items-center">
+            <i class="bi bi-plus-lg me-1"></i>Record Income
+        </a>
+    </div>
+</div>
+
+<!-- Filters -->
+<div class="card p-3 mb-4">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Search</label>
+            <input type="text" name="q" value="{{ q }}" class="form-control form-control-sm" placeholder="Description/notes...">
+        </div>
+        <div class="col-md-3">
+            <label class="form-label small text-muted mb-1">Source</label>
+            <select name="source" class="form-select form-select-sm">
+                <option value="">All Sources</option>
+                {% for code, label in source_choices %}
+                    <option value="{{ code }}" {% if source == code %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">From</label>
+            <input type="date" name="date_from" value="{{ date_from }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2">
+            <label class="form-label small text-muted mb-1">To</label>
+            <input type="date" name="date_to" value="{{ date_to }}" class="form-control form-control-sm">
+        </div>
+        <div class="col-md-2 d-flex gap-1">
+            <button type="submit" class="btn btn-dark btn-sm w-100">Filter</button>
+            <a href="{% url 'finance:income_list' %}" class="btn btn-outline-secondary btn-sm">Clear</a>
+        </div>
+    </form>
+</div>
+
+<!-- Income Table -->
+<div class="card">
+    <div class="table-responsive">
+        <table class="table table-hover align-middle mb-0">
+            <thead class="table-light">
+                <tr>
+                    <th>Date</th>
+                    <th>Description</th>
+                    <th>Source</th>
+                    <th class="text-end">Amount (INR)</th>
+                    <th class="text-end">Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in incomes %}
+                <tr>
+                    <td>{{ item.income_date|date:"d M Y" }}</td>
+                    <td>
+                        <div class="fw-semibold">{{ item.description }}</div>
+                        {% if item.notes %}<small class="text-muted">{{ item.notes|truncatechars:60 }}</small>{% endif %}
+                    </td>
+                    <td><span class="badge bg-success-subtle text-success border border-success">{{ item.get_source_display }}</span></td>
+                    <td class="text-end">
+                        <span class="fw-bold text-success">₹{{ item.amount }}</span>
+                        {% if item.currency != 'INR' and item.original_amount %}
+                            <small class="d-block text-muted">
+                                {{ item.original_amount }} {{ item.currency }} @ {{ item.exchange_rate }}
+                            </small>
+                        {% endif %}
+                    </td>
+                    <td class="text-end">
+                        <a href="{% url 'finance:income_edit' item.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-pencil"></i></a>
+                        <form method="post" action="{% url 'finance:income_delete' item.pk %}" class="d-inline" onsubmit="return confirm('Archive this income record?');">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-outline-danger"><i class="bi bi-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="5" class="text-center py-4 text-muted">No income records found.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

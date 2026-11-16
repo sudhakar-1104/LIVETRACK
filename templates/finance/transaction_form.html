@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+{% block title %}{{ page_title }} | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card p-4">
+            <h5 class="fw-bold mb-3">{{ page_title }}</h5>
+            <form method="post">
+                {% csrf_token %}
+
+                {% if form.non_field_errors %}
+                    <div class="alert alert-danger small">
+                        {{ form.non_field_errors }}
+                    </div>
+                {% endif %}
+
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.help_text %}
+                            <div class="form-text">{{ field.help_text }}</div>
+                        {% endif %}
+                        {% if field.errors %}
+                            <div class="text-danger small mt-1">{{ field.errors }}</div>
+                        {% endif %}
+                    </div>
+                {% endfor %}
+
+                <!-- Live Base INR Equivalent Preview (shown when foreign currency is selected) -->
+                <div id="inrPreviewBox" class="alert alert-info py-2 px-3 small d-none">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <span>Converted Base Amount (INR):</span>
+                        <strong id="inrPreviewValue" class="fs-6">₹0.00</strong>
+                    </div>
+                </div>
+
+                <div class="d-flex justify-content-between mt-4">
+                    <a href="{% url cancel_url %}" class="btn btn-outline-secondary">Cancel</a>
+                    <button type="submit" class="btn btn-primary">Save Record</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script id="ratesMapData" type="application/json">{{ rates_json|default:"{}"|safe }}</script>
+<script>
+    const ratesMap = JSON.parse(document.getElementById('ratesMapData').textContent);
+    const amountInput = document.getElementById('id_original_amount');
+    const currSelect = document.getElementById('id_currency');
+    const rateInput = document.getElementById('id_exchange_rate');
+    const previewBox = document.getElementById('inrPreviewBox');
+    const previewValue = document.getElementById('inrPreviewValue');
+
+    function updateConversionPreview() {
+        if (!currSelect || !rateInput || !amountInput || !previewBox) return;
+
+        const currency = currSelect.value;
+        const amount = parseFloat(amountInput.value) || 0;
+        const rate = parseFloat(rateInput.value) || 0;
+
+        if (currency === 'INR') {
+            rateInput.value = '1.0000';
+            rateInput.readOnly = true;
+            rateInput.classList.add('bg-light');
+            previewBox.classList.add('d-none');
+        } else {
+            rateInput.readOnly = false;
+            rateInput.classList.remove('bg-light');
+            previewBox.classList.remove('d-none');
+            const converted = (amount * rate).toFixed(2);
+            previewValue.textContent = `₹${converted}`;
+        }
+    }
+
+    if (currSelect && rateInput) {
+        currSelect.addEventListener('change', function () {
+            const selected = this.value;
+            if (ratesMap[selected]) {
+                rateInput.value = ratesMap[selected];
+            }
+            updateConversionPreview();
+        });
+    }
+
+    if (amountInput) {
+        amountInput.addEventListener('input', updateConversionPreview);
+    }
+
+    if (rateInput) {
+        rateInput.addEventListener('input', updateConversionPreview);
+    }
+
+    // Initialize state on page load (handles both new and edit forms)
+    document.addEventListener('DOMContentLoaded', updateConversionPreview);
+</script>
+{% endblock %}

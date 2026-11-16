@@ -1,0 +1,51 @@
+{% extends 'base.html' %}
+{% block title %}Notifications | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h4 class="fw-bold mb-0">Notifications & Reminders</h4>
+        <small class="text-muted">Automated alerts for due tasks, upcoming bills, and budget thresholds</small>
+    </div>
+    {% if unread_notification_count > 0 %}
+    <form method="post" action="{% url 'common:mark_all_read' %}">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-outline-dark btn-sm">Mark All as Read</button>
+    </form>
+    {% endif %}
+</div>
+
+<div class="card">
+    <div class="list-group list-group-flush">
+        {% for n in notifications %}
+        <div class="list-group-item d-flex justify-content-between align-items-start gap-3 {% if not n.is_read %}bg-light{% endif %}">
+            <div>
+                <div class="d-flex align-items-center gap-2 mb-1">
+                    {% if n.level == 'DANGER' %}
+                        <span class="badge bg-danger">Alert</span>
+                    {% elif n.level == 'WARNING' %}
+                        <span class="badge bg-warning text-dark">Reminder</span>
+                    {% else %}
+                        <span class="badge bg-info text-dark">Info</span>
+                    {% endif %}
+                    <strong class="{% if n.is_read %}text-muted{% endif %}">{{ n.title }}</strong>
+                    {% if not n.is_read %}<span class="badge bg-primary">New</span>{% endif %}
+                </div>
+                <p class="mb-1 small text-muted">{{ n.message }}</p>
+                <small class="text-muted" style="font-size: 0.75rem;">{{ n.created_at|date:"d M Y, h:i A" }}</small>
+            </div>
+            <form method="post" action="{% url 'common:mark_read' n.pk %}">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-sm {% if n.is_read %}btn-outline-secondary{% else %}btn-primary{% endif %}">
+                    {% if n.link %}Open &rarr;{% else %}Dismiss{% endif %}
+                </button>
+            </form>
+        </div>
+        {% empty %}
+        <div class="p-4 text-center text-muted">
+            No notifications right now. You're all caught up!
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

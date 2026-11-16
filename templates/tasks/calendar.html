@@ -1,0 +1,118 @@
+{% extends 'base.html' %}
+{% block title %}Calendar | LifeTrack{% endblock %}
+
+{% block content %}
+<div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+    <div>
+        <h4 class="fw-bold mb-0">{{ month_name }} {{ year }}</h4>
+        <small class="text-muted">Click any date cell to inspect due tasks and daily expenses</small>
+    </div>
+    <div class="btn-group shadow-sm">
+        <a href="?year={{ prev_year }}&month={{ prev_month }}" class="btn btn-outline-secondary btn-sm">
+            <i class="bi bi-chevron-left"></i> Prev
+        </a>
+        <a href="{% url 'tasks:calendar' %}" class="btn btn-outline-primary btn-sm fw-semibold">Today</a>
+        <a href="?year={{ next_year }}&month={{ next_month }}" class="btn btn-outline-secondary btn-sm">
+            Next <i class="bi bi-chevron-right"></i>
+        </a>
+    </div>
+</div>
+
+<div class="row g-4">
+    <!-- Left: Month Grid -->
+    <div class="col-lg-8">
+        <div class="card overflow-hidden">
+            <div class="table-responsive">
+                <table class="table table-bordered mb-0" style="table-layout: fixed;">
+                    <thead class="text-center">
+                        <tr>
+                            <th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for week in weeks %}
+                        <tr>
+                            {% for cell in week %}
+                            <td class="p-1 align-top lt-cal-cell {% if not cell.in_month %}lt-cal-outside{% endif %} {% if cell.is_selected %}lt-cal-selected{% endif %}">
+                                <a href="?year={{ year }}&month={{ month }}&day={{ cell.date|date:'Y-m-d' }}"
+                                   class="text-decoration-none d-block h-100 text-reset">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <span class="small fw-bold {% if cell.is_today %}badge bg-primary rounded-pill{% endif %}">
+                                            {{ cell.date.day }}
+                                        </span>
+                                        {% if cell.expense_total > 0 %}
+                                            <span class="badge bg-danger-subtle text-danger" style="font-size: 0.68rem;">
+                                                ₹{{ cell.expense_total|floatformat:0 }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+                                    {% for t in cell.tasks|slice:":2" %}
+                                        <div class="text-truncate small px-1 rounded mb-1 {% if t.status == 'COMPLETED' %}bg-success-subtle text-success text-decoration-line-through{% elif t.is_overdue %}bg-danger-subtle text-danger{% else %}bg-primary-subtle text-primary{% endif %}"
+                                             style="font-size: 0.72rem;">
+                                            {{ t.title }}
+                                        </div>
+                                    {% endfor %}
+                                    {% if cell.tasks|length > 2 %}
+                                        <div class="text-muted fw-semibold" style="font-size: 0.68rem;">+{{ cell.tasks|length|add:"-2" }} more</div>
+                                    {% endif %}
+                                </a>
+                            </td>
+                            {% endfor %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right: Selected Day Details -->
+    <div class="col-lg-4">
+        <div class="card p-3 sticky-top" style="top: 80px;">
+            <div class="d-flex justify-content-between align-items-center pb-2 mb-3 border-bottom">
+                <div>
+                    <span class="badge bg-primary-subtle text-primary mb-1">{{ selected_date|date:"l" }}</span>
+                    <h6 class="fw-bold mb-0">{{ selected_date|date:"d F Y" }}</h6>
+                </div>
+                <a href="{% url 'tasks:create' %}" class="btn btn-sm btn-primary py-1">
+                    <i class="bi bi-plus-lg me-1"></i>Task
+                </a>
+            </div>
+
+            <h6 class="small text-muted text-uppercase fw-bold mb-2">Tasks ({{ selected_tasks|length }})</h6>
+            <ul class="list-group list-group-flush small mb-3">
+                {% for t in selected_tasks %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent">
+                    <span class="{% if t.status == 'COMPLETED' %}text-decoration-line-through text-muted{% else %}fw-medium{% endif %}">
+                        {{ t.title }}
+                        {% if t.recurrence != 'NONE' %}
+                            <i class="bi bi-arrow-repeat text-info ms-1" title="Recurring: {{ t.get_recurrence_display }}"></i>
+                        {% endif %}
+                    </span>
+                    <span class="badge {% if t.status == 'COMPLETED' %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary-emphasis{% endif %}">
+                        {{ t.get_status_display }}
+                    </span>
+                </li>
+                {% empty %}
+                <li class="list-group-item px-0 text-muted bg-transparent">No tasks due on this date.</li>
+                {% endfor %}
+            </ul>
+
+            <h6 class="small text-muted text-uppercase fw-bold mb-2">Expenses ({{ selected_expenses|length }})</h6>
+            <ul class="list-group list-group-flush small">
+                {% for e in selected_expenses %}
+                <li class="list-group-item d-flex justify-content-between align-items-center px-0 bg-transparent">
+                    <div>
+                        <span class="fw-medium">{{ e.description }}</span>
+                        <small class="text-muted d-block">{{ e.category.name }} • {{ e.payment_method.name }}</small>
+                    </div>
+                    <span class="fw-bold text-danger">₹{{ e.amount }}</span>
+                </li>
+                {% empty %}
+                <li class="list-group-item px-0 text-muted bg-transparent">No expenses logged on this date.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+{% endblock %}
