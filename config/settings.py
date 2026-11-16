@@ -26,7 +26,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 # SECURITY WARNING: keep the secret key used in production secret!
 
-ALLOWED_HOSTS = ['Sudhakar.pythonanywhere.com', '127.0.0.1', 'localhost']
+ALLOWED_HOSTS = ['sudhakar.pythonanywhere.com', '127.0.0.1', 'localhost']
 
 
 # Application definition
@@ -129,7 +129,7 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-CSRF_TRUSTED_ORIGINS = ['https://Sudhakar.pythonanywhere.com']
+CSRF_TRUSTED_ORIGINS = ['https://sudhakar.pythonanywhere.com']
 
 # Email
 # https://docs.djangoproject.com/en/6.1/topics/email/#topic-email-configuration
