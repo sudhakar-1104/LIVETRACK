@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/6.1/ref/settings/
 import os
 from dotenv import load_dotenv
 
+from apps.accounts import apps
+
 load_dotenv()
 from pathlib import Path
 
@@ -46,6 +48,7 @@ INSTALLED_APPS = [
     'apps.budgets',
     'apps.dashboard',
     'apps.reports',
+    'apps.cash_wallet'
 ]
 
 MIDDLEWARE = [

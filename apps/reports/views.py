@@ -5,7 +5,7 @@ from datetime import date, timedelta
 from decimal import Decimal
 import openpyxl
 from django.contrib.auth.decorators import login_required
-from django.db.models import Sum
+from django.db.models import Avg, Count, Max, Sum
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.utils import timezone
@@ -100,7 +100,7 @@ def _build_report_data(user, start_date, end_date):
     # Category breakdown
     category_breakdown = list(
         expenses.values('category__name')
-        .annotate(total=Sum('amount'))
+        .annotate(total=Sum('amount'), tx_count=Count('id'))
         .order_by('-total')
     )
     for row in category_breakdown:
@@ -111,7 +111,7 @@ def _build_report_data(user, start_date, end_date):
     # Highest-spend day
     daily_totals = list(
         expenses.values('expense_date')
-        .annotate(total=Sum('amount'))
+        .annotate(total=Sum('amount'), count=Count('id'))
         .order_by('-total')
     )
     highest_spend_day = daily_totals[0] if daily_totals else None
@@ -133,6 +133,7 @@ def _build_report_data(user, start_date, end_date):
         'avg_daily_expense': avg_daily_expense,
         'category_breakdown': category_breakdown,
         'top_category': top_category,
+        'daily_totals': daily_totals,
         'highest_spend_day': highest_spend_day,
         'eligible_count': eligible_count,
         'completed_count': completed_count,
@@ -174,6 +175,7 @@ def insights_view(request):
     last_day = calendar.monthrange(year, month)[1]
     start_date = date(year, month, 1)
     end_date = date(year, month, last_day)
+    month_name = calendar.month_name[month]
     data = _build_report_data(request.user, start_date, end_date)
 
     # 1. Savings Rate %
@@ -182,8 +184,15 @@ def insights_view(request):
     else:
         savings_rate = None
 
-    # 2. Active-Spend-Day Average & Month-End Spend Forecast
-    active_spend_days = data['expenses'].values('expense_date').distinct().count()
+    # 2. Active-Spend-Day Average, No-Spend Days & Month-End Spend Forecast
+    elapsed_days = today.day if (year == today.year and month == today.month and today.day > 0) else last_day
+    elapsed_days = max(elapsed_days, 1)
+
+    active_spend_days = len(data['daily_totals'])
+    no_spend_days = max(elapsed_days - active_spend_days, 0)
+    no_spend_ratio = round((no_spend_days / elapsed_days) * 100, 1)
+
+    avg_daily_expense = round(data['total_expense'] / Decimal(elapsed_days), 2)
     active_day_avg = round(data['total_expense'] / Decimal(active_spend_days), 2) if active_spend_days > 0 else Decimal('0.00')
 
     if year == today.year and month == today.month and today.day > 0:
@@ -191,44 +200,141 @@ def insights_view(request):
     else:
         projected_month_spend = data['total_expense']
 
-    # 3. Month-on-Month Comparison
+    # 3. Transaction Velocity & Ticket Size Metrics
+    tx_stats = data['expenses'].aggregate(
+        tx_count=Count('id'),
+        avg_tx=Avg('amount'),
+        max_tx=Max('amount'),
+    )
+    tx_count = tx_stats['tx_count'] or 0
+    avg_ticket_size = round(tx_stats['avg_tx'] or Decimal('0.00'), 2)
+
+    # 4. Month-on-Month Comparison (Overall + Per Category)
     prev_month = 12 if month == 1 else month - 1
     prev_year = year - 1 if month == 1 else year
-    prev_total = Expense.objects.filter(
+    prev_expenses_qs = Expense.objects.filter(
         user=request.user,
         is_archived=False,
         expense_date__year=prev_year,
         expense_date__month=prev_month
-    ).aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
+    )
+    prev_total = prev_expenses_qs.aggregate(total=Sum('amount'))['total'] or Decimal('0.00')
 
     if prev_total > 0:
         mom_change = round(((data['total_expense'] - prev_total) / prev_total) * Decimal('100'), 1)
     else:
-        mom_change = None  # Zero baseline handled safely (T09)
+        mom_change = None  # Zero baseline handled safely
 
-    # 4. Payment Method Breakdown
+    prev_cat_map = {
+        row['category__name']: row['total']
+        for row in prev_expenses_qs.values('category__name').annotate(total=Sum('amount'))
+    }
+    for row in data['category_breakdown']:
+        prev_amt = prev_cat_map.get(row['category__name'], Decimal('0.00'))
+        row['prev_total'] = prev_amt
+        row['delta'] = row['total'] - prev_amt
+        row['delta_pct'] = round((row['delta'] / prev_amt) * Decimal('100'), 1) if prev_amt > 0 else None
+
+    # 5. Payment Method Breakdown
     payment_breakdown = list(
         data['expenses'].values('payment_method__name')
-        .annotate(total=Sum('amount'))
+        .annotate(total=Sum('amount'), tx_count=Count('id'))
         .order_by('-total')
     )
     for row in payment_breakdown:
         row['share'] = round((row['total'] / data['total_expense']) * Decimal('100'), 1) if data['total_expense'] > 0 else Decimal('0.0')
 
-    # 5. Day-of-Week Spending Pattern (Mon=0 .. Sun=6)
+    # 6. Day-of-Week Spending Pattern + Weekday vs Weekend Split
     weekday_totals = [Decimal('0.00')] * 7
+    daily_amount_map = {}
     for exp in data['expenses']:
         weekday_totals[exp.expense_date.weekday()] += exp.amount
+        daily_amount_map[exp.expense_date] = daily_amount_map.get(exp.expense_date, Decimal('0.00')) + exp.amount
+
     weekday_labels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
     weekday_values = [float(val) for val in weekday_totals]
     peak_weekday_idx = weekday_totals.index(max(weekday_totals)) if data['total_expense'] > 0 else None
     peak_weekday = weekday_labels[peak_weekday_idx] if peak_weekday_idx is not None else None
 
-    # 6. 12-Month Rolling Trend (Income, Expense, Net Savings, Task Completion %)
+    weekday_total = sum(weekday_totals[:5])
+    weekend_total = sum(weekday_totals[5:])
+    weekend_share = round((weekend_total / data['total_expense']) * Decimal('100'), 1) if data['total_expense'] > 0 else Decimal('0.0')
+    weekday_share = round(Decimal('100.0') - weekend_share, 1) if data['total_expense'] > 0 else Decimal('0.0')
+
+    # 7. Daily Cumulative Burn-Rate Curve (Day 1 .. last_day)
+    cum_day_labels = []
+    cum_actual_series = []
+    linear_pace_series = []
+    running_total = Decimal('0.00')
+    pace_ceiling = data['total_income'] if data['total_income'] > 0 else projected_month_spend
+    daily_linear_target = pace_ceiling / Decimal(last_day)
+
+    for day_num in range(1, last_day + 1):
+        curr_d = date(year, month, day_num)
+        cum_day_labels.append(f"{day_num} {month_name[:3]}")
+        linear_pace_series.append(float(round(daily_linear_target * Decimal(day_num), 2)))
+        if curr_d <= today:
+            running_total += daily_amount_map.get(curr_d, Decimal('0.00'))
+            cum_actual_series.append(float(running_total))
+        else:
+            cum_actual_series.append(None)
+
+    # 8. Top Repeated Merchants / Descriptions & Top 5 Largest Single Expenses
+    top_merchants = list(
+        data['expenses'].values('description')
+        .annotate(total=Sum('amount'), freq=Count('id'), avg_amt=Avg('amount'))
+        .order_by('-total', '-freq')[:6]
+    )
+    top_transactions = list(data['expenses'].order_by('-amount', '-expense_date')[:5])
+
+    # 9. Automated Smart Spending Diagnostics
+    smart_insights = []
+    if data['total_expense'] == 0:
+        smart_insights.append({
+            'type': 'info',
+            'icon': 'bi-info-circle-fill',
+            'text': f"No expenses recorded for {month_name} {year} yet. Add expenses to unlock burn-rate and velocity diagnostics."
+        })
+    else:
+        top_cat = data['top_category']
+        if top_cat and top_cat['share'] >= 40:
+            smart_insights.append({
+                'type': 'warning',
+                'icon': 'bi-exclamation-triangle-fill',
+                'text': f"High concentration: {top_cat['category__name']} accounts for {top_cat['share']}% (₹{top_cat['total']}) of your spending this month."
+            })
+        if data['total_income'] > 0 and projected_month_spend > data['total_income']:
+            overrun = projected_month_spend - data['total_income']
+            smart_insights.append({
+                'type': 'danger',
+                'icon': 'bi-graph-up-arrow',
+                'text': f"Burn-rate alert: At ₹{avg_daily_expense}/day, month-end spend (₹{projected_month_spend}) is projected to exceed income by ₹{overrun}."
+            })
+        elif savings_rate is not None and savings_rate >= 25:
+            smart_insights.append({
+                'type': 'success',
+                'icon': 'bi-shield-check',
+                'text': f"Healthy savings rate: You are retaining {savings_rate}% of your income (₹{data['net_cash_flow']} net surplus)."
+            })
+        if weekend_share >= 40:
+            smart_insights.append({
+                'type': 'warning',
+                'icon': 'bi-calendar-week',
+                'text': f"Weekend skew: {weekend_share}% (₹{weekend_total}) of your spending occurred on Saturdays and Sundays."
+            })
+        if no_spend_ratio >= 40:
+            smart_insights.append({
+                'type': 'success',
+                'icon': 'bi-stars',
+                'text': f"Strong spending control: {no_spend_days} of {elapsed_days} elapsed days ({no_spend_ratio}%) had zero expenses."
+            })
+
+    # 10. 12-Month Rolling Trend (Income, Expense, Net Savings, Savings Rate %, Task Completion %)
     trend_labels = []
     trend_expenses = []
     trend_incomes = []
     trend_savings = []
+    trend_savings_rates = []
     trend_task_rates = []
 
     cur_y, cur_m = year, month
@@ -260,36 +366,67 @@ def insights_view(request):
         comp = m_tasks.filter(status='COMPLETED').count()
         t_rate = round((comp / elig) * 100, 1) if elig > 0 else 0
 
+        s_rate = float(round(((i_sum - e_sum) / i_sum) * Decimal('100'), 1)) if i_sum > 0 else 0.0
+
         trend_expenses.append(float(e_sum))
         trend_incomes.append(float(i_sum))
         trend_savings.append(float(i_sum - e_sum))
+        trend_savings_rates.append(s_rate)
         trend_task_rates.append(t_rate)
 
     cat_labels = [row['category__name'] for row in data['category_breakdown']]
     cat_values = [float(row['total']) for row in data['category_breakdown']]
+    cat_prev_values = [float(row['prev_total']) for row in data['category_breakdown']]
+
+    merchant_labels = [m['description'][:22] for m in top_merchants]
+    merchant_values = [float(m['total']) for m in top_merchants]
+
+    pay_labels = [p['payment_method__name'] or 'Other' for p in payment_breakdown]
+    pay_values = [float(p['total']) for p in payment_breakdown]
 
     context = {
         **data,
+        'avg_daily_expense': avg_daily_expense,
         'selected_year': year,
         'selected_month': month,
-        'month_name': calendar.month_name[month],
+        'month_name': month_name,
         'month_choices': [(i, calendar.month_name[i]) for i in range(1, 13)],
         'savings_rate': savings_rate,
         'active_spend_days': active_spend_days,
+        'no_spend_days': no_spend_days,
+        'no_spend_ratio': no_spend_ratio,
         'active_day_avg': active_day_avg,
         'projected_month_spend': projected_month_spend,
+        'tx_count': tx_count,
+        'avg_ticket_size': avg_ticket_size,
         'prev_total': prev_total,
         'mom_change': mom_change,
         'payment_breakdown': payment_breakdown,
         'peak_weekday': peak_weekday,
+        'weekday_total': weekday_total,
+        'weekend_total': weekend_total,
+        'weekday_share': weekday_share,
+        'weekend_share': weekend_share,
+        'top_merchants': top_merchants,
+        'top_transactions': top_transactions,
+        'smart_insights': smart_insights,
         'cat_labels_json': json.dumps(cat_labels),
         'cat_values_json': json.dumps(cat_values),
+        'cat_prev_values_json': json.dumps(cat_prev_values),
+        'merchant_labels_json': json.dumps(merchant_labels),
+        'merchant_values_json': json.dumps(merchant_values),
+        'pay_labels_json': json.dumps(pay_labels),
+        'pay_values_json': json.dumps(pay_values),
         'weekday_labels_json': json.dumps(weekday_labels),
         'weekday_values_json': json.dumps(weekday_values),
+        'cum_day_labels_json': json.dumps(cum_day_labels),
+        'cum_actual_series_json': json.dumps(cum_actual_series),
+        'linear_pace_series_json': json.dumps(linear_pace_series),
         'trend_labels_json': json.dumps(trend_labels),
         'trend_expenses_json': json.dumps(trend_expenses),
         'trend_incomes_json': json.dumps(trend_incomes),
         'trend_savings_json': json.dumps(trend_savings),
+        'trend_savings_rates_json': json.dumps(trend_savings_rates),
         'trend_task_rates_json': json.dumps(trend_task_rates),
     }
     return render(request, 'reports/insights.html', context)

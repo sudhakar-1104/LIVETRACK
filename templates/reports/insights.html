@@ -4,8 +4,11 @@
 {% block content %}
 <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
     <div>
-        <h4 class="fw-bold mb-0">Advanced Analytics & Insights</h4>
-        <small class="text-muted">{{ month_name }} {{ selected_year }} • 12-Month Historical Intelligence</small>
+        <div class="d-flex align-items-center gap-2">
+            <h4 class="fw-bold mb-0">Advanced Analytics & Spending Intelligence</h4>
+            <span class="badge bg-primary-subtle text-primary">Executive View</span>
+        </div>
+        <small class="text-muted">{{ month_name }} {{ selected_year }} • Velocity, Burn-Rate, Variance & 12-Month Trends</small>
     </div>
     <form method="get" class="d-flex gap-2 align-items-center">
         <select name="month" class="form-select form-select-sm" style="width: 140px;">
@@ -14,166 +17,365 @@
             {% endfor %}
         </select>
         <input type="number" name="year" value="{{ selected_year }}" class="form-control form-control-sm" style="width: 95px;">
-        <button type="submit" class="btn btn-dark btn-sm">Analyze</button>
+        <button type="submit" class="btn btn-primary btn-sm">Analyze</button>
     </form>
 </div>
+
+<!-- Automated Smart Diagnostics Strip -->
+{% if smart_insights %}
+<div class="card p-3 mb-4 border-start border-4 border-primary">
+    <div class="d-flex align-items-center gap-2 mb-2">
+        <i class="bi bi-cpu text-primary"></i>
+        <span class="fw-bold small text-uppercase">Automated Spending Diagnostics</span>
+    </div>
+    <div class="d-flex flex-column gap-2">
+        {% for item in smart_insights %}
+        <div class="d-flex align-items-start gap-2 small">
+            <i class="bi {{ item.icon }} text-{{ item.type }} mt-1"></i>
+            <span>{{ item.text }}</span>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
 
 <!-- Row 1: Core Financial & Velocity KPIs -->
 <div class="row g-3 mb-3">
     <div class="col-6 col-lg-3">
-        <div class="card p-3 h-100">
-            <span class="text-muted small">Calendar Daily Avg</span>
-            <h4 class="fw-bold text-dark mb-1">₹{{ avg_daily_expense }}</h4>
+        <div class="card p-3 h-100 kpi-card">
+            <span class="text-muted small fw-semibold">Calendar Daily Avg</span>
+            <h4 class="fw-bold mb-1 mt-1">₹{{ avg_daily_expense }}</h4>
             <small class="text-muted">Active spend days ({{ active_spend_days }}d): <strong>₹{{ active_day_avg }}</strong></small>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="card p-3 h-100">
-            <span class="text-muted small">Projected Month Spend</span>
-            <h4 class="fw-bold text-danger mb-1">₹{{ projected_month_spend }}</h4>
-            <small class="text-muted">Actual MTD: ₹{{ total_expense }}</small>
+        <div class="card p-3 h-100 kpi-card kpi-danger">
+            <span class="text-muted small fw-semibold">Projected Month-End Spend</span>
+            <h4 class="fw-bold text-danger mb-1 mt-1">₹{{ projected_month_spend }}</h4>
+            <small class="text-muted">Actual MTD: <strong>₹{{ total_expense }}</strong></small>
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="card p-3 h-100">
-            <span class="text-muted small">Savings Rate</span>
+        <div class="card p-3 h-100 kpi-card kpi-success">
+            <span class="text-muted small fw-semibold">Savings Rate</span>
             {% if savings_rate is not None %}
-                <h4 class="fw-bold {% if savings_rate >= 20 %}text-success{% elif savings_rate >= 0 %}text-primary{% else %}text-danger{% endif %} mb-1">
+                <h4 class="fw-bold {% if savings_rate >= 20 %}text-success{% elif savings_rate >= 0 %}text-primary{% else %}text-danger{% endif %} mb-1 mt-1">
                     {{ savings_rate }}%
                 </h4>
-                <small class="text-muted">Net: ₹{{ net_cash_flow }}</small>
+                <small class="text-muted">Net cash-flow: <strong>₹{{ net_cash_flow }}</strong></small>
             {% else %}
-                <h5 class="fw-bold text-muted mb-1">N/A</h5>
+                <h5 class="fw-bold text-muted mb-1 mt-1">N/A</h5>
                 <small class="text-muted">No income recorded</small>
             {% endif %}
         </div>
     </div>
     <div class="col-6 col-lg-3">
-        <div class="card p-3 h-100">
-            <span class="text-muted small">Month-on-Month Change</span>
+        <div class="card p-3 h-100 kpi-card kpi-warning">
+            <span class="text-muted small fw-semibold">Month-on-Month Change</span>
             {% if mom_change is not None %}
-                <h4 class="fw-bold {% if mom_change > 0 %}text-danger{% else %}text-success{% endif %} mb-1">
+                <h4 class="fw-bold {% if mom_change > 0 %}text-danger{% else %}text-success{% endif %} mb-1 mt-1">
                     {% if mom_change > 0 %}+{% endif %}{{ mom_change }}%
                 </h4>
-                <small class="text-muted">Prev month: ₹{{ prev_total }}</small>
+                <small class="text-muted">Prev month: <strong>₹{{ prev_total }}</strong></small>
             {% else %}
-                <h5 class="fw-bold text-muted mb-1">N/A</h5>
+                <h5 class="fw-bold text-muted mb-1 mt-1">N/A</h5>
                 <small class="text-muted">No prior month baseline</small>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Row 2: Behavioral Highlights -->
+<!-- Row 2: Granular Spending Velocity & Behavioral Cards -->
 <div class="row g-3 mb-4">
-    <div class="col-md-4">
+    <div class="col-6 col-lg-3">
         <div class="card p-3 h-100">
-            <span class="text-muted small">Top Expense Category</span>
-            {% if top_category %}
-                <h5 class="fw-bold text-primary mb-0">{{ top_category.category__name }}</h5>
-                <small class="text-muted">₹{{ top_category.total }} ({{ top_category.share }}% of spend)</small>
-            {% else %}
-                <h5 class="fw-bold text-muted mb-0">—</h5>
-                <small class="text-muted">No spending recorded</small>
-            {% endif %}
+            <span class="text-muted small">Average Ticket Size</span>
+            <h5 class="fw-bold text-primary mb-1 mt-1">₹{{ avg_ticket_size }}</h5>
+            <small class="text-muted">Across <strong>{{ tx_count }}</strong> transaction{{ tx_count|pluralize }}</small>
         </div>
     </div>
-    <div class="col-md-4">
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Zero-Spend Days</span>
+            <h5 class="fw-bold text-success mb-1 mt-1">{{ no_spend_days }} day{{ no_spend_days|pluralize }} ({{ no_spend_ratio }}%)</h5>
+            <small class="text-muted">Days with ₹0 outflow</small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
+        <div class="card p-3 h-100">
+            <span class="text-muted small">Weekday vs. Weekend</span>
+            <h5 class="fw-bold mb-1 mt-1">{{ weekday_share }}% / {{ weekend_share }}%</h5>
+            <small class="text-muted">₹{{ weekday_total }} Wkday • ₹{{ weekend_total }} Wkend</small>
+        </div>
+    </div>
+    <div class="col-6 col-lg-3">
         <div class="card p-3 h-100">
             <span class="text-muted small">Highest-Spend Date</span>
             {% if highest_spend_day %}
-                <h5 class="fw-bold text-danger mb-0">₹{{ highest_spend_day.total }}</h5>
-                <small class="text-muted">{{ highest_spend_day.expense_date|date:"l, d M Y" }}</small>
+                <h5 class="fw-bold text-danger mb-1 mt-1">₹{{ highest_spend_day.total }}</h5>
+                <small class="text-muted">{{ highest_spend_day.expense_date|date:"D, d M Y" }} (Peak: {{ peak_weekday }})</small>
             {% else %}
-                <h5 class="fw-bold text-muted mb-0">—</h5>
-                <small class="text-muted">No spending recorded</small>
-            {% endif %}
-        </div>
-    </div>
-    <div class="col-md-4">
-        <div class="card p-3 h-100">
-            <span class="text-muted small">Peak Spending Day of Week</span>
-            {% if peak_weekday %}
-                <h5 class="fw-bold text-dark mb-0">{{ peak_weekday }}</h5>
-                <small class="text-muted">Task completion this month: <strong>{{ completion_rate }}%</strong></small>
-            {% else %}
-                <h5 class="fw-bold text-muted mb-0">—</h5>
+                <h5 class="fw-bold text-muted mb-1 mt-1">—</h5>
                 <small class="text-muted">No spending recorded</small>
             {% endif %}
         </div>
     </div>
 </div>
 
-<!-- Row 3: 12-Month Rolling Income/Expense/Savings Chart + Task Productivity Line -->
+<!-- Row 3: Daily Cumulative Burn-Rate Curve + Category Distribution Doughnut -->
 <div class="row g-4 mb-4">
     <div class="col-lg-8">
         <div class="card p-3 h-100">
-            <h6 class="fw-bold mb-3">12-Month Income, Expenses & Net Cash-Flow Trend</h6>
-            <canvas id="trendChart" height="140"></canvas>
+            <div class="mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-activity text-danger me-2"></i>Cumulative Daily Spend vs. Linear Target Pace</h6>
+                <small class="text-muted">Visualizes spending velocity across {{ month_name }} against steady daily pacing</small>
+            </div>
+            <div style="position: relative; height: 270px;">
+                <canvas id="cumulativeBurnChart"></canvas>
+            </div>
         </div>
     </div>
     <div class="col-lg-4">
         <div class="card p-3 h-100">
-            <h6 class="fw-bold mb-3">12-Month Task Completion Rate (%)</h6>
-            <canvas id="taskTrendChart" height="295"></canvas>
-        </div>
-    </div>
-</div>
-
-<!-- Row 4: Category Doughnut, Weekday Pattern & Payment Method Split -->
-<div class="row g-4">
-    <div class="col-lg-4">
-        <div class="card p-3 h-100">
-            <h6 class="fw-bold mb-3">Spending by Category</h6>
+            <h6 class="fw-bold mb-1"><i class="bi bi-pie-chart text-primary me-2"></i>Category Share</h6>
+            <small class="text-muted d-block mb-2">Proportional allocation for {{ month_name }}</small>
             {% if category_breakdown %}
-                <canvas id="categoryChart" height="230"></canvas>
+                <div style="position: relative; height: 260px;">
+                    <canvas id="categoryChart"></canvas>
+                </div>
             {% else %}
                 <p class="text-muted small text-center my-5">Add expenses in {{ month_name }} to see category distribution.</p>
             {% endif %}
         </div>
     </div>
-    <div class="col-lg-4">
+</div>
+
+<!-- Row 4: Month-over-Month Category Comparison Bar Chart + Payment Method Ring -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-8">
         <div class="card p-3 h-100">
-            <h6 class="fw-bold mb-3">Spending by Day of Week</h6>
-            <canvas id="weekdayChart" height="230"></canvas>
+            <div class="mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-bar-chart-steps text-primary me-2"></i>Category Spend: This Month vs. Previous Month</h6>
+                <small class="text-muted">Direct side-by-side variance across spending categories</small>
+            </div>
+            {% if category_breakdown %}
+                <div style="position: relative; height: 260px;">
+                    <canvas id="categoryCompareChart"></canvas>
+                </div>
+            {% else %}
+                <p class="text-muted small text-center my-5">No category spending recorded for comparison yet.</p>
+            {% endif %}
         </div>
     </div>
     <div class="col-lg-4">
         <div class="card p-3 h-100">
-            <h6 class="fw-bold mb-3">Payment Method Breakdown</h6>
-            <table class="table table-sm mb-0">
-                <thead class="table-light">
-                    <tr><th>Method</th><th class="text-end">Amount</th><th class="text-end">Share</th></tr>
-                </thead>
-                <tbody>
-                    {% for row in payment_breakdown %}
-                    <tr>
-                        <td>{{ row.payment_method__name }}</td>
-                        <td class="text-end fw-semibold">₹{{ row.total }}</td>
-                        <td class="text-end text-muted">{{ row.share }}%</td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="3" class="text-center text-muted py-3">No transactions recorded.</td></tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <h6 class="fw-bold mb-1"><i class="bi bi-credit-card text-info me-2"></i>Payment Channel Mix</h6>
+            <small class="text-muted d-block mb-2">Share by payment mode</small>
+            {% if payment_breakdown %}
+                <div style="position: relative; height: 260px;">
+                    <canvas id="paymentChart"></canvas>
+                </div>
+            {% else %}
+                <p class="text-muted small text-center my-5">No payment data recorded.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- Row 5: Top Merchants Horizontal Bar Chart + Day-of-Week Heatmap Bar -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-6">
+        <div class="card p-3 h-100">
+            <div class="mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-shop text-warning me-2"></i>Top Merchants & Items by Spend</h6>
+                <small class="text-muted">Highest cumulative outflow by description</small>
+            </div>
+            {% if top_merchants %}
+                <div style="position: relative; height: 245px;">
+                    <canvas id="merchantBarChart"></canvas>
+                </div>
+            {% else %}
+                <p class="text-muted small text-center my-5">No expense descriptions logged yet.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card p-3 h-100">
+            <div class="mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-calendar3-week text-warning me-2"></i>Spending by Day of Week</h6>
+                <small class="text-muted">Identifies high-spend days across Monday–Sunday</small>
+            </div>
+            <div style="position: relative; height: 245px;">
+                <canvas id="weekdayChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 6: 12-Month Rolling Income/Expense/Savings + 12-Month Savings Rate % Trajectory -->
+<div class="row g-4 mb-4">
+    <div class="col-lg-7">
+        <div class="card p-3 h-100">
+            <div class="mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-bar-chart-line text-success me-2"></i>12-Month Income, Expenses & Net Cash-Flow</h6>
+                <small class="text-muted">Trailing 12-month cash-flow performance</small>
+            </div>
+            <div style="position: relative; height: 270px;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-3 h-100">
+            <div class="mb-2">
+                <h6 class="fw-bold mb-0"><i class="bi bi-percent text-primary me-2"></i>12-Month Savings Rate (%) & Task Completion</h6>
+                <small class="text-muted">Monthly savings retention % vs. task execution %</small>
+            </div>
+            <div style="position: relative; height: 270px;">
+                <canvas id="savingsRateTrendChart"></canvas>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Row 7: Detailed Variance & Audit Tables -->
+<div class="row g-4">
+    <div class="col-lg-7">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-table text-primary me-2"></i>Category Variance Audit Table</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead>
+                        <tr>
+                            <th>Category</th>
+                            <th class="text-center">Txns</th>
+                            <th class="text-end">This Month</th>
+                            <th class="text-end">Prev Month</th>
+                            <th class="text-end">Share</th>
+                            <th class="text-end">Change</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in category_breakdown %}
+                        <tr>
+                            <td class="fw-semibold">{{ row.category__name }}</td>
+                            <td class="text-center text-muted small">{{ row.tx_count }}</td>
+                            <td class="text-end fw-bold">₹{{ row.total }}</td>
+                            <td class="text-end text-muted">₹{{ row.prev_total }}</td>
+                            <td class="text-end text-muted">{{ row.share }}%</td>
+                            <td class="text-end">
+                                {% if row.delta_pct is not None %}
+                                    <span class="badge {% if row.delta > 0 %}bg-danger-subtle text-danger{% elif row.delta < 0 %}bg-success-subtle text-success{% else %}bg-secondary-subtle text-secondary{% endif %}">
+                                        {% if row.delta > 0 %}+{% endif %}{{ row.delta_pct }}%
+                                    </span>
+                                {% else %}
+                                    <span class="text-muted small">New</span>
+                                {% endif %}
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="6" class="text-center text-muted py-4">No category data for {{ month_name }}.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-5">
+        <div class="card p-3 h-100">
+            <h6 class="fw-bold mb-3"><i class="bi bi-receipt text-danger me-2"></i>Top 5 Largest Single Expenses</h6>
+            <div class="table-responsive">
+                <table class="table table-sm table-hover align-middle mb-0">
+                    <thead>
+                        <tr><th>Item & Category</th><th>Date</th><th class="text-end">Amount</th></tr>
+                    </thead>
+                    <tbody>
+                        {% for tx in top_transactions %}
+                        <tr>
+                            <td>
+                                <div class="fw-medium small text-truncate" style="max-width: 185px;">{{ tx.description }}</div>
+                                <small class="text-muted" style="font-size: 0.72rem;">{{ tx.category.name }} • {{ tx.payment_method.name }}</small>
+                            </td>
+                            <td class="small text-muted">{{ tx.expense_date|date:"d M" }}</td>
+                            <td class="text-end fw-bold text-danger">₹{{ tx.amount }}</td>
+                        </tr>
+                        {% empty %}
+                        <tr><td colspan="3" class="text-center text-muted py-4">No transactions recorded.</td></tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
 {% endblock %}
 
 {% block extra_js %}
-
-
-
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
-
 <script>
     const isDark = document.documentElement.getAttribute('data-bs-theme') === 'dark';
     Chart.defaults.color = isDark ? '#94a3b8' : '#64748b';
     Chart.defaults.borderColor = isDark ? 'rgba(148, 163, 184, 0.14)' : 'rgba(15, 23, 42, 0.08)';
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+    const palette = ['#4f46e5', '#10b981', '#f59e0b', '#ef4444', '#06b6d4', '#8b5cf6', '#f97316', '#64748b'];
+
+    const currencyTooltip = {
+        callbacks: {
+            label: function (ctx) {
+                const label = ctx.dataset.label || ctx.label || '';
+                const val = ctx.parsed.y !== undefined ? ctx.parsed.y : (ctx.parsed.x !== undefined ? ctx.parsed.x : ctx.parsed);
+                if (val === null || val === undefined) return '';
+                return `${label}: ₹${Number(val).toLocaleString('en-IN')}`;
+            }
+        }
+    };
+
+    // 1. Cumulative Daily Burn-Rate Curve
+    const cumLabels = JSON.parse('{{ cum_day_labels_json|escapejs }}');
+    const cumActual = JSON.parse('{{ cum_actual_series_json|escapejs }}');
+    const cumPace = JSON.parse('{{ linear_pace_series_json|escapejs }}');
+    if (document.getElementById('cumulativeBurnChart')) {
+        new Chart(document.getElementById('cumulativeBurnChart'), {
+            type: 'line',
+            data: {
+                labels: cumLabels,
+                datasets: [
+                    {
+                        label: 'Cumulative Spend',
+                        data: cumActual,
+                        borderColor: '#ef4444',
+                        backgroundColor: 'rgba(239, 68, 68, 0.14)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.25,
+                        pointRadius: 2.5
+                    },
+                    {
+                        label: 'Linear Target Pace',
+                        data: cumPace,
+                        borderColor: '#94a3b8',
+                        borderDash: [6, 4],
+                        borderWidth: 1.8,
+                        fill: false,
+                        pointRadius: 0
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { tooltip: currencyTooltip, legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // 2. Category Share Doughnut
     const catLabels = JSON.parse('{{ cat_labels_json|escapejs }}');
     const catValues = JSON.parse('{{ cat_values_json|escapejs }}');
+    const catPrevValues = JSON.parse('{{ cat_prev_values_json|escapejs }}');
     if (catLabels.length > 0 && document.getElementById('categoryChart')) {
         new Chart(document.getElementById('categoryChart'), {
             type: 'doughnut',
@@ -181,13 +383,124 @@
                 labels: catLabels,
                 datasets: [{
                     data: catValues,
-                    backgroundColor: ['#0d6efd', '#dc3545', '#ffc107', '#198754', '#0dcaf0', '#6f42c1', '#fd7e14', '#6c757d']
+                    backgroundColor: palette,
+                    borderWidth: 2,
+                    borderColor: isDark ? '#111827' : '#ffffff'
                 }]
             },
-            options: { responsive: true, plugins: { legend: { position: 'bottom' } } }
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '62%',
+                plugins: { tooltip: currencyTooltip, legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+            }
         });
     }
 
+    // 3. Category Grouped Comparison: This Month vs Previous Month
+    if (catLabels.length > 0 && document.getElementById('categoryCompareChart')) {
+        new Chart(document.getElementById('categoryCompareChart'), {
+            type: 'bar',
+            data: {
+                labels: catLabels,
+                datasets: [
+                    {
+                        label: 'Previous Month',
+                        data: catPrevValues,
+                        backgroundColor: 'rgba(148, 163, 184, 0.45)',
+                        borderRadius: 5
+                    },
+                    {
+                        label: '{{ month_name }}',
+                        data: catValues,
+                        backgroundColor: '#4f46e5',
+                        borderRadius: 5
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { tooltip: currencyTooltip, legend: { position: 'top' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // 4. Payment Channel Polar/Doughnut Ring
+    const payLabels = JSON.parse('{{ pay_labels_json|escapejs }}');
+    const payValues = JSON.parse('{{ pay_values_json|escapejs }}');
+    if (payLabels.length > 0 && document.getElementById('paymentChart')) {
+        new Chart(document.getElementById('paymentChart'), {
+            type: 'doughnut',
+            data: {
+                labels: payLabels,
+                datasets: [{
+                    data: payValues,
+                    backgroundColor: ['#06b6d4', '#4f46e5', '#10b981', '#f59e0b', '#8b5cf6'],
+                    borderWidth: 2,
+                    borderColor: isDark ? '#111827' : '#ffffff'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                cutout: '58%',
+                plugins: { tooltip: currencyTooltip, legend: { position: 'bottom', labels: { boxWidth: 12 } } }
+            }
+        });
+    }
+
+    // 5. Top Merchants Horizontal Bar Chart
+    const merchantLabels = JSON.parse('{{ merchant_labels_json|escapejs }}');
+    const merchantValues = JSON.parse('{{ merchant_values_json|escapejs }}');
+    if (merchantLabels.length > 0 && document.getElementById('merchantBarChart')) {
+        new Chart(document.getElementById('merchantBarChart'), {
+            type: 'bar',
+            data: {
+                labels: merchantLabels,
+                datasets: [{
+                    label: 'Total Spent',
+                    data: merchantValues,
+                    backgroundColor: '#f59e0b',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                indexAxis: 'y',
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { tooltip: currencyTooltip, legend: { display: false } },
+                scales: { x: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // 6. Day of Week Bar Chart
+    const weekdayLabels = JSON.parse('{{ weekday_labels_json|escapejs }}');
+    const weekdayValues = JSON.parse('{{ weekday_values_json|escapejs }}');
+    if (document.getElementById('weekdayChart')) {
+        new Chart(document.getElementById('weekdayChart'), {
+            type: 'bar',
+            data: {
+                labels: weekdayLabels,
+                datasets: [{
+                    label: 'Spend',
+                    data: weekdayValues,
+                    backgroundColor: ['#4f46e5', '#4f46e5', '#4f46e5', '#4f46e5', '#4f46e5', '#f97316', '#f97316'],
+                    borderRadius: 6
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { tooltip: currencyTooltip, legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
+
+    // 7. 12-Month Income, Expense & Net Cash-Flow Trend
     const trendLabels = JSON.parse('{{ trend_labels_json|escapejs }}');
     const trendExpenses = JSON.parse('{{ trend_expenses_json|escapejs }}');
     const trendIncomes = JSON.parse('{{ trend_incomes_json|escapejs }}');
@@ -198,58 +511,61 @@
             data: {
                 labels: trendLabels,
                 datasets: [
-                    { label: 'Income (₹)', data: trendIncomes, backgroundColor: '#198754' },
-                    { label: 'Expenses (₹)', data: trendExpenses, backgroundColor: '#dc3545' },
-                    { label: 'Net Savings (₹)', data: trendSavings, type: 'line', borderColor: '#0d6efd', backgroundColor: '#0d6efd', tension: 0.3 }
+                    { label: 'Income', data: trendIncomes, backgroundColor: '#10b981', borderRadius: 4 },
+                    { label: 'Expenses', data: trendExpenses, backgroundColor: '#ef4444', borderRadius: 4 },
+                    { label: 'Net Savings', data: trendSavings, type: 'line', borderColor: '#4f46e5', backgroundColor: '#4f46e5', borderWidth: 2.5, tension: 0.3 }
                 ]
             },
             options: {
                 responsive: true,
+                maintainAspectRatio: false,
+                plugins: { tooltip: currencyTooltip, legend: { position: 'top' } },
                 scales: { y: { beginAtZero: true } }
             }
         });
     }
 
+    // 8. 12-Month Savings Rate % vs Task Completion % Dual Line Chart
+    const trendSavingsRates = JSON.parse('{{ trend_savings_rates_json|escapejs }}');
     const trendTaskRates = JSON.parse('{{ trend_task_rates_json|escapejs }}');
-    if (document.getElementById('taskTrendChart')) {
-        new Chart(document.getElementById('taskTrendChart'), {
+    if (document.getElementById('savingsRateTrendChart')) {
+        new Chart(document.getElementById('savingsRateTrendChart'), {
             type: 'line',
             data: {
                 labels: trendLabels,
-                datasets: [{
-                    label: 'Completion %',
-                    data: trendTaskRates,
-                    borderColor: '#6f42c1',
-                    backgroundColor: 'rgba(111, 66, 193, 0.15)',
-                    fill: true,
-                    tension: 0.3
-                }]
+                datasets: [
+                    {
+                        label: 'Savings Rate %',
+                        data: trendSavingsRates,
+                        borderColor: '#10b981',
+                        backgroundColor: 'rgba(16, 185, 129, 0.14)',
+                        borderWidth: 2.5,
+                        fill: true,
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Task Completion %',
+                        data: trendTaskRates,
+                        borderColor: '#8b5cf6',
+                        borderDash: [5, 4],
+                        borderWidth: 2,
+                        fill: false,
+                        tension: 0.3
+                    }
+                ]
             },
             options: {
                 responsive: true,
-                scales: { y: { beginAtZero: true, max: 100 } },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-
-    const weekdayLabels = JSON.parse('{{ weekday_labels_json|escapejs }}');
-    const weekdayValues = JSON.parse('{{ weekday_values_json|escapejs }}');
-    if (document.getElementById('weekdayChart')) {
-        new Chart(document.getElementById('weekdayChart'), {
-            type: 'bar',
-            data: {
-                labels: weekdayLabels,
-                datasets: [{
-                    label: 'Spend (₹)',
-                    data: weekdayValues,
-                    backgroundColor: '#fd7e14'
-                }]
-            },
-            options: {
-                responsive: true,
-                scales: { y: { beginAtZero: true } },
-                plugins: { legend: { display: false } }
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { position: 'top' },
+                    tooltip: {
+                        callbacks: {
+                            label: ctx => `${ctx.dataset.label}: ${ctx.parsed.y}%`
+                        }
+                    }
+                },
+                scales: { y: { suggestedMin: 0, suggestedMax: 100 } }
             }
         });
     }
